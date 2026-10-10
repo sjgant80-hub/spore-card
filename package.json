@@ -1,0 +1,1 @@
+{"name":"spore-card","version":"1.0.0","type":"module","license":"MIT","scripts":{"test":"node --test","witness":"node witness-all.mjs"}}

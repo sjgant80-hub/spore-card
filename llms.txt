@@ -1,0 +1,17 @@
+# Spore Card
+> A PNG card that carries a verified 41-byte seed in its pixels. Save the card, drop it into the grower, and a working model germinates locally and offline — reproducing a held-out AUC of 0.820498 on 4,725 unseen sessions, with a receipt you re-run.
+
+## What it is
+- A seed, not a download link: the picture carries the genome; growing fits a real model on your own machine.
+- Two layers: a redundant visible module band (survives a screenshot/re-encode) and a lossless PNG chunk (exact, for a file that travels intact).
+- A CRC-16 refuses a corrupt read rather than growing the wrong thing.
+
+## Verify (re-run beats attest)
+- Germinate the seed `◊ spore.v1 funnel 11 f:579fc3f04c233901` — it reproduces held-out AUC 0.820498, the figure fall-spore sealed in commit 4c3ab7b.
+- Run the mutation gate: `npm run witness` (exit 0 only if the card codec is clean).
+
+## Links
+- Live: https://sjgant80-hub.github.io/spore-card/
+- Seed + grower: https://sjgant80-hub.github.io/fall-spore/
+
+Powered by the Konomi architecture, created by Thomas Frumkin.

@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spore Card</title>
+<meta name="description" content="A picture that is a seed. Save the card, drop it into the grower, and a working model grows on your machine — offline, owned, with a receipt you re-run. Held-out AUC 0.820 on sessions it never grew on. Powered by the Konomi architecture, created by Thomas Frumkin.">
+<meta property="og:title" content="Spore Card — a picture you can grow">
+<meta property="og:description" content="Save the card. Drop it in. A working model grows on your machine, offline — reproducing a held-out AUC of 0.820 you can re-run.">
+<style>
+  :root{
+    --bg:#0b0b0f; --panel:#14141b; --ink:#ececf1; --dim:#9a9aa6; --line:#262630;
+    --gold:#e9c46a; --emerald:#2a9d8f; --emerald-2:#3bb3a3;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  a{color:var(--emerald-2)}
+  .wrap{max-width:860px;margin:0 auto;padding:40px 16px 80px}
+  .kicker{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold)}
+  h1{font:700 clamp(30px,6vw,46px)/1.1 Georgia,"Times New Roman",serif;margin:.3em 0 .2em}
+  .grad{background:linear-gradient(100deg,var(--gold),var(--emerald-2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lede{color:var(--dim);font-size:clamp(16px,2.4vw,19px);max-width:62ch}
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:34px 0}
+  @media(max-width:680px){.cards{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px}
+  .panel h2{font:700 20px/1.2 Georgia,serif;margin:0 0 6px}
+  .panel p{color:var(--dim);font-size:14px;margin:0 0 16px}
+  .btn{display:inline-block;border:0;border-radius:10px;padding:12px 18px;font:600 15px/1 inherit;cursor:pointer;color:#0b0b0f;background:linear-gradient(100deg,var(--gold),var(--emerald-2))}
+  .btn.ghost{background:transparent;color:var(--emerald-2);border:1px solid var(--emerald)}
+  .btn:disabled{opacity:.5;cursor:default}
+  canvas{max-width:100%;height:auto;border-radius:12px;background:#fff;display:block;margin:0 auto}
+  .drop{border:2px dashed var(--line);border-radius:12px;padding:26px;text-align:center;color:var(--dim);transition:border-color .15s,background .15s}
+  .drop.hot{border-color:var(--emerald);background:#101820}
+  .out{margin-top:14px;font-size:14px}
+  .ok{color:var(--emerald-2)} .bad{color:#e76f51}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;word-break:break-all;background:#0e0e14;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:#cfd3dc}
+  .proof{display:flex;gap:18px;flex-wrap:wrap;margin:26px 0;padding:18px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+  .stat b{display:block;font:700 26px/1 Georgia,serif;color:var(--gold)}
+  .stat span{font-size:12px;color:var(--dim)}
+  .note{color:var(--dim);font-size:13px;margin-top:8px}
+  footer{color:var(--dim);font-size:13px;border-top:1px solid var(--line);margin-top:48px;padding-top:18px}
+  .steps{counter-reset:s;list-style:none;padding:0;margin:14px 0}
+  .steps li{counter-increment:s;padding:6px 0 6px 34px;position:relative;color:var(--dim);font-size:14px}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:5px;width:22px;height:22px;border-radius:50%;background:var(--emerald);color:#04110f;font:700 12px/22px inherit;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker">◊ Spore Card</div>
+  <h1>A picture that is a <span class="grad">seed</span>.</h1>
+  <p class="lede">Save the card below. Drop it into the grower. A working model grows on <b>your</b> machine —
+  offline, owned by you, reproducing a held-out accuracy you can re-run. The post, the proof and the product
+  are one image: share the card, and anyone who keeps it can grow the thing it carries.</p>
+
+  <div class="proof">
+    <div class="stat"><b id="s-auc">0.820</b><span>held-out AUC, on sessions it never grew on</span></div>
+    <div class="stat"><b id="s-held">4,725</b><span>unseen sessions it's graded on</span></div>
+    <div class="stat"><b id="s-seed">41 B</b><span>the seed carried in the picture</span></div>
+    <div class="stat"><b id="s-ratio">~230×</b><span>grown body vs the seed</span></div>
+  </div>
+
+  <div class="cards">
+    <div class="panel">
+      <h2>1 · Grow a card</h2>
+      <p>Render the seed as a card. Download it — the picture carries the seed in its pixels.</p>
+      <canvas id="card" width="516" height="666" aria-label="spore card preview"></canvas>
+      <div style="margin-top:14px">
+        <button class="btn" id="dl">Download the card (PNG)</button>
+      </div>
+      <div class="note">This is the image Grok posts. Keep the real PNG for an exact read; a screenshot still grows it.</div>
+    </div>
+
+    <div class="panel">
+      <h2>2 · Grow from a card</h2>
+      <p>Drop a saved card. We read the seed from the picture and grow the model — right here, offline.</p>
+      <div class="drop" id="drop">
+        <input type="file" id="file" accept="image/png,image/jpeg" hidden>
+        <div>Drop a spore card here, or <a href="#" id="browse">choose a file</a>.</div>
+      </div>
+      <div class="out" id="read"></div>
+      <div style="margin-top:10px">
+        <button class="btn ghost" id="grow" disabled>Grow it →</button>
+      </div>
+      <div class="out" id="grown"></div>
+    </div>
+  </div>
+
+  <ol class="steps">
+    <li>The seed is 41 bytes — a verified genome, not a download link.</li>
+    <li>Growing reads the genome and fits a real model on your machine, with the network trapped shut.</li>
+    <li>You get an owned model file and a receipt that reproduces <b>0.820</b> held-out AUC — re-run it to check us.</li>
+  </ol>
+
+  <footer>
+    The seed and the grower are <a href="https://sjgant80-hub.github.io/fall-spore/">fall-spore</a>; this card codec is gated
+    by a mutation test you can re-run. Powered by the Konomi architecture, created by Thomas Frumkin. Every number here is
+    measured on real sessions and reproduced locally when you grow the card.
+  </footer>
+</div>
+
+<script type="module">
+import * as W from './spore-card-wire.mjs';
+
+const $ = (id) => document.getElementById(id);
+const card = $('card');
+
+// render the preview card on load
+W.drawCard(card);
+
+$('dl').addEventListener('click', async () => {
+  $('dl').disabled = true; $('dl').textContent = 'Rendering…';
+  try { await W.downloadCard(card); $('dl').textContent = 'Downloaded ✓'; }
+  catch (e) { $('dl').textContent = 'Download failed'; }
+  setTimeout(() => { $('dl').disabled = false; $('dl').textContent = 'Download the card (PNG)'; }, 1600);
+});
+
+let pendingSeed = null;
+const read = $('read'), grown = $('grown');
+
+async function handleFile(file) {
+  read.innerHTML = 'Reading the picture…'; grown.innerHTML = ''; $('grow').disabled = true; pendingSeed = null;
+  try {
+    const r = await W.decodeFile(file);
+    if (!r.ok) { read.innerHTML = '<span class="bad">Couldn\'t read a seed: ' + r.error + '</span>'; return; }
+    pendingSeed = r.seed;
+    read.innerHTML = '<span class="ok">Seed read (' + r.via + ')</span><div class="mono">' + r.seed + '</div>';
+    $('grow').disabled = false;
+  } catch (e) { read.innerHTML = '<span class="bad">' + (e.message || 'read error') + '</span>'; }
+}
+
+$('grow').addEventListener('click', async () => {
+  if (!pendingSeed) return;
+  $('grow').disabled = true; grown.innerHTML = 'Growing on your machine…';
+  try {
+    const g = await W.germinate(pendingSeed);
+    if (!g.ok) { grown.innerHTML = '<span class="bad">' + (g.error || 'grow failed') + '</span>'; return; }
+    const auc = g.heldAuc.toFixed(6);
+    grown.innerHTML =
+      '<span class="ok">Grown ✓</span> — held-out AUC <b>' + auc + '</b> on ' + g.held +
+      ' unseen sessions, fitted on ' + g.train + '. Grown body ' + g.ratio.grownBytes +
+      ' bytes from a ' + g.ratio.sporeBytes + '-byte seed (' + g.ratio.ratio.toFixed(0) + '×).' +
+      '<div style="margin-top:10px"><button class="btn" id="save">Download your model + receipt</button></div>';
+    $('save').addEventListener('click', () => {
+      const body = { seed: pendingSeed, heldAuc: g.heldAuc, held: g.held, train: g.train, organ: g.organ };
+      const receipt = {
+        product: 'spore-card', seed: pendingSeed, heldAuc: g.heldAuc, held: g.held, train: g.train,
+        reproduce: 'Open https://sjgant80-hub.github.io/fall-spore/ and germinate this seed, or run fall-spore germinate() on the UCI Online Shoppers sessions; the held-out AUC reproduces.',
+        credit: 'Powered by the Konomi architecture, created by Thomas Frumkin.',
+      };
+      W.triggerDownload(new Blob([JSON.stringify(body, null, 2)], { type: 'application/json' }), 'your-didy.json');
+      W.triggerDownload(new Blob([JSON.stringify(receipt, null, 2)], { type: 'application/json' }), 'receipt.json');
+    });
+  } catch (e) { grown.innerHTML = '<span class="bad">' + (e.message || 'grow error') + '</span>'; }
+});
+
+// drop + browse wiring
+const drop = $('drop');
+$('browse').addEventListener('click', (e) => { e.preventDefault(); $('file').click(); });
+$('file').addEventListener('change', (e) => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, (e)=>{e.preventDefault();drop.classList.add('hot');}));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, (e)=>{e.preventDefault();drop.classList.remove('hot');}));
+drop.addEventListener('drop', (e) => { const f = e.dataTransfer.files[0]; if (f) handleFile(f); });
+</script>
+</body>
+</html>

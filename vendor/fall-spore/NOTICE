@@ -1,0 +1,26 @@
+fall-spore
+Copyright 2026 sjgant80-hub. The code is MIT-licensed (see LICENSE).
+
+fall-spore is the SPORE layer. The germination engine it grows with — the stem genome, the grow/fit evolver, the
+held-out protocol and the pattern book — is reused VERBATIM from pattern-organs (sjgant80-hub), whose organ.mjs is
+vendored here unchanged (sha256 d21b07da4a74fb9ee674446b17ee9a957eb05acfc136ffc6ff135b317fb724d2) and sealed in
+data/prereg.json. fall-spore adds only: packing the genome to bytes, the konomi-family spore codec, germinate /
+differentiate, the offline probe, and the seed-vs-forest ratio.
+
+The sessions file data/online_shoppers_intention.csv is NOT covered by the MIT licence. It is the Online Shoppers
+Purchasing Intention Dataset by C. Sakar and Y. Kastro, UCI Machine Learning Repository (2018), DOI 10.24432/C5F88Q,
+licensed under Creative Commons Attribution 4.0 International (CC BY 4.0), https://creativecommons.org/licenses/by/4.0/ .
+It is redistributed unchanged (sha256 b3055ee355f59134d851d32641183cb4a8b45def7124d2f50442a042f358e0d9). Introduced in:
+Sakar, C. O., Polat, S., Katircioglu, M., and Kastro, Y., "Real-time prediction of online shoppers' purchasing intention
+using multilayer perceptron and LSTM recurrent neural networks", Neural Computing & Applications (2019).
+
+The seven stem elements are the stages of the estate's capability router, whose seven-stage basis is Thomas Frumkin's
+MACCubeFACE lattice. The konomi-family codec and the compressed-DNA framing follow the Konomi architecture and the
+LIGHT codec lineage. Powered by the Konomi architecture, created by Thomas Frumkin.
+
+SENTINEL: the spore's defence is grown-in — the offline probe and the total, mutation-gated ribosome are the SENTINEL
+that holds whether or not the client is online. No code is unmanifested on disk beyond the tiny DNA; the working build
+only exists in memory once germinated.
+
+Honesty: germination is DETERMINISTIC ASSEMBLY. The ribosome is a decoder plus the pattern-organs miner/evolver — it is
+not a language model, and no femtoLLM runs inside anything measured or gated here.

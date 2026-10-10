@@ -1,0 +1,13 @@
+name: gate
+on: [push, pull_request]
+jobs:
+  witness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: tests (codec + image/survival + chunk)
+        run: node --test spore-card.test.mjs spore-card-image.test.mjs
+      - name: mutation gate (codec)
+        run: node witness-all.mjs

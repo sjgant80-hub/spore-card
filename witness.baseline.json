@@ -1,0 +1,12 @@
+[
+  {
+    "mutation": "> → >=",
+    "snippet": "if (need > cellsList.length) return { ok: false, error: 'payload exceeds card capacity' };",
+    "reason": "Equivalent: need = 48 + frameBytes*24 (HEADER_BITS*reps + payloadBits*reps). cellsList.length is 1342; 1342-48=1294 is not divisible by 24, so need is never exactly 1342. need is 1320 (fits) or 1344 (rejects) — it steps over 1342 — so > and >= decide identically on every reachable input."
+  },
+  {
+    "mutation": "> → >=",
+    "snippet": "if (flen < 6 || HEADER_BITS * reps + payloadBits * reps > cellsList.length) return { ok: f",
+    "reason": "Equivalent: same arithmetic as the encode capacity check — base + payloadBits*reps = 48 + flen*24 never equals cellsList.length (1342), so > and >= are identical for every reachable frame length."
+  }
+]

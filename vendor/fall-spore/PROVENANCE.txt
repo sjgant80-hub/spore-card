@@ -1,0 +1,1 @@
+fall-spore spore.mjs + organ.mjs vendored from sjgant80-hub/fall-spore (MIT), the germination kernel. Powered by the Konomi architecture, created by Thomas Frumkin.

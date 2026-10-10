@@ -1,0 +1,13 @@
+Spore Card — a PNG card that is a seed.
+Powered by the Konomi architecture, created by Thomas Frumkin.
+
+Vendored, credited:
+- spore.mjs, organ.mjs  — sjgant80-hub/fall-spore (MIT): the seed format and germination engine.
+- png.mjs               — sjgant80-hub/fallkard-forge (MIT): PNG chunk primitives (lossless layer).
+- .witness/witness.mjs  — the mutation gate engine (claudedidy / sjgant80-hub), vendored and credited.
+
+Bundled data:
+- data/online_shoppers_intention.csv — UCI "Online Shoppers Purchasing Intention Dataset".
+  Used to reproduce the sealed held-out AUC locally when a card is grown.
+
+The NEW code in this repo is spore-card.mjs (the card codec) and spore-card-wire.mjs (browser glue).
