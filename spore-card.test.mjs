@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  V1, V2, CARD_SEED, strToBytes, bytesToStr, crc16, frame, unframe,
+  V1, V2, V3, CARD_SEED, strToBytes, bytesToStr, crc16, frame, unframe,
   isFinder, dataCells, encodeMatrix, decodeMatrix, cardFrameFor, seedFromFrame,
 } from './spore-card.mjs';
 
@@ -31,10 +31,25 @@ test('frame writes the version it is given; unframe reports it and returns the p
 test('frame refuses to write an unknown version — it falls back to 1, never writes 9', () => {
   assert.equal(frame(Uint8Array.from([1]), 9)[1], 1);
   assert.equal(frame(Uint8Array.from([1]), 0)[1], 1);
-  assert.equal(frame(Uint8Array.from([1]), 3)[1], 1);
+  assert.equal(frame(Uint8Array.from([1]), 4)[1], 1);
+  assert.equal(frame(Uint8Array.from([1]), 3)[1], 3, 'version 3 (a signed answer) is real');
+  assert.equal(frame(Uint8Array.from([1]), 2)[1], 2);
 });
-test('unframe refuses versions other than 1 and 2', () => {
-  for (const v of [0, 3, 9, 255]) {
+test('V3 is the 69-module answer shape, same module size', () => {
+  assert.equal(V3.MODULES, 69); assert.equal(V3.VER, 3); assert.equal(V3.REPS, 3); assert.equal(V3.CELL_PX, V1.CELL_PX);
+});
+test('a ~180-byte answer envelope fits V3 and round-trips; it does not fit V2', () => {
+  const env = Uint8Array.from({ length: 179 }, (_, i) => (i * 53 + 7) & 0xff);
+  const fr = frame(env, 3);
+  const enc = encodeMatrix(fr, V3.MODULES, V3.REPS);
+  assert.ok(enc.ok);
+  const dec = decodeMatrix(enc.cells, V3.MODULES, V3.REPS);
+  assert.deepEqual(Array.from(dec.frame), Array.from(fr));
+  assert.equal(unframe(dec.frame).ver, 3);
+  assert.equal(encodeMatrix(fr, V2.MODULES, V2.REPS).ok, false, 'a full citation does not fit the v2 grid');
+});
+test('unframe refuses versions other than 1, 2 and 3', () => {
+  for (const v of [0, 4, 9, 255]) {
     const f = frame(Uint8Array.from([1, 2]), 1);
     f[1] = v;
     assert.equal(unframe(f).ok, false, 'version ' + v + ' must be refused');
@@ -86,6 +101,21 @@ test('bytesToStr skips a lone lead byte instead of decoding garbage', () => {
   assert.equal(bytesToStr(Uint8Array.from([0xc2])), '');           // 2-byte lead, no continuation
   assert.equal(bytesToStr(Uint8Array.from([0xe0, 0xa0])), '');     // 3-byte lead, one short
   assert.equal(bytesToStr(Uint8Array.from([0xf0, 0x90, 0x80])), ''); // 4-byte lead, one short
+});
+test('bytesToStr skips a 4-byte form past U+10FFFF instead of throwing (review finding)', () => {
+  assert.doesNotThrow(() => bytesToStr(Uint8Array.from([0xf4, 0x90, 0x80, 0x80])));
+  assert.equal(bytesToStr(Uint8Array.from([0xf4, 0x90, 0x80, 0x80])), '', 'U+110000 is not a character');
+  assert.equal(bytesToStr(Uint8Array.from([0xf7, 0xbf, 0xbf, 0xbf, 0x41])), 'A', 'the bytes after it still decode');
+  assert.equal(bytesToStr(Uint8Array.from([0xf4, 0x8f, 0xbf, 0xbf])), '\u{10ffff}', 'U+10FFFF itself is the last valid one');
+});
+test('encodeMatrix and decodeMatrix refuse any copy count but 3 — never allocate it (review finding)', () => {
+  const fr = cardFrameFor();
+  for (const r of [1, 2, 4, 0, 1e9, -1, 3.5]) {
+    assert.equal(encodeMatrix(fr, V1.MODULES, r).ok, false, 'encode reps ' + r);
+    assert.equal(decodeMatrix(new Uint8Array(V1.MODULES * V1.MODULES), V1.MODULES, r).ok, false, 'decode reps ' + r);
+  }
+  assert.equal(encodeMatrix(fr, V1.MODULES, 3).ok, true);
+  assert.match(encodeMatrix(fr, V1.MODULES, 2).error, /only 3 copies/);
 });
 test('bytesToStr decodes a complete 2-byte char that ends the buffer', () => {
   assert.equal(bytesToStr(Uint8Array.from([0xc2, 0x80])), '\u0080');

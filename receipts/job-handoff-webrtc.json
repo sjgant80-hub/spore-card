@@ -1,0 +1,50 @@
+{
+  "kind": "spore-card-job-handoff-live-run",
+  "v": 1,
+  "date": "2026-10-12",
+  "what": "MESH_PLAN step 3 done-test, run live: the 'phone' node signs a grow job addressed to the 'laptop' node and sends it over a real WebRTC DataChannel; the laptop checks it, grows it, seals a v3 answer card and sends it back as a picture; the phone re-runs the answer itself.",
+  "honest_scope": "Two independent browser nodes on ONE machine (different origins, so separate storage and separate non-extractable Ed25519 keys in IndexedDB). A recorded observation, not a regenerable receipt: browser keys and nonces are random. The byte-reproducible receipt for the same protocol is receipts/job-roundtrip.json (CI re-runs it). The two-DEVICE run waits on a second device.",
+  "topology": {
+    "requester": { "role": "phone", "origin": "http://localhost:8150", "key": "8f2f6fd8743b6ce9d19fea3b45836d542e17a2dbb4039b2bd35c5e2fc005c367" },
+    "worker": { "role": "laptop", "origin": "http://127.0.0.1:8150", "key": "c620b29ca5d88ce7fb6fb12e4dc5170c9bb76f1dc739416e4f37e7b893e20db8", "runJobs": "ticked (opt-in)" },
+    "data": "both nodes hold data/online_shoppers_intention.csv (data tag b3055ee3)",
+    "link": "RTCPeerConnection DataChannel, invite + reply pasted by hand (fall-os webrtc.mjs, fall-federate invite check); each node learned the other's key from the invite",
+    "stun": "none — the STUN box was unticked on both nodes; no third party at all"
+  },
+  "job": {
+    "spore": "◊ spore.v1 funnel 11 g:12.2.10",
+    "context": "all",
+    "dataTag": "b3055ee3",
+    "maxEvals": 200,
+    "requester": "8f2f6fd8743b6ce9d19fea3b45836d542e17a2dbb4039b2bd35c5e2fc005c367",
+    "worker": "c620b29ca5d88ce7fb6fb12e4dc5170c9bb76f1dc739416e4f37e7b893e20db8",
+    "nonce": "96d082135d851d18",
+    "issued": 1791803948,
+    "expires": 1791807548,
+    "hash": "7d16c419edb68818bb92db9f5b42603c547558b9750b8fd54ca36e49590c47f5"
+  },
+  "worker_side": "grew it (104 evaluations: 102 for the grow + 2 for the confirmation split) and sent back the signed answer",
+  "answer": {
+    "accept": true,
+    "stage": "accepted",
+    "reason": "reproduced 0.820498 here — the signature proves who, the re-run proved what",
+    "card": "2f1734980dd1e1e4fc381d256506472a856d1ebb2d2a153610d163a5fd7a0c1b",
+    "cites": "7d16c419edb68818bb92db9f5b42603c547558b9750b8fd54ca36e49590c47f5",
+    "cites_my_job": true,
+    "signer": "c620b29ca5d88ce7fb6fb12e4dc5170c9bb76f1dc739416e4f37e7b893e20db8",
+    "signer_is_the_addressed_worker": true,
+    "claimed": "0.820498",
+    "reproduced": "0.820498",
+    "seal": "verified",
+    "data": "held",
+    "transit": { "intact": true, "sha256": "3f5ce5069cb6e7b44a94bfe63b630f1702790162b129a2adc487ec6482a47ffd" }
+  },
+  "attacks_on_the_worker": [
+    { "case": "replay", "what": "the same signed job, sent again", "refused_at": "replay", "reason": "this job was already run here — a replay is refused" },
+    { "case": "tampered", "what": "the same job with maxEvals changed from 200 to 150, old signature", "refused_at": "seal", "reason": "seal mismatch — the requester did not sign this job" },
+    { "case": "addressed-elsewhere", "what": "a job validly signed by the same requester but addressed to another worker key (abab…ab)", "refused_at": "audience", "reason": "this job is addressed to another worker" }
+  ],
+  "network": "the phone requested only http://localhost:8150 (page, modules, its data — fetched twice: once by the page, once by a console import used to sign the addressed-elsewhere job) plus one blob: URL (decoding the received answer picture locally); the laptop only http://127.0.0.1:8150. The job and the answer travelled over the DataChannel. Zero requests left the machine.",
+  "held": true,
+  "rule": "a worker refuses a job it was not signed, addressed and allowed to run; a requester accepts an answer only if it cites its job, is signed by the worker it chose, and re-runs to the same score on its own machine"
+}

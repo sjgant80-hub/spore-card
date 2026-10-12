@@ -93,8 +93,78 @@ test('attachSignature appends exactly 64 bytes, and refuses anything else', () =
   assert.equal(attachSignature(u, new Uint8Array(63)).ok, false);
   assert.equal(attachSignature(u, new Uint8Array(65)).ok, false);
   assert.equal(attachSignature(new Uint8Array(42), sig).ok, false, 'shorter than the smallest unsigned envelope');
-  assert.equal(attachSignature(new Uint8Array(43), sig).ok, true, '2 + 1-byte seed + 40 is the smallest');
+  for (const tiny of [[], [0x02], [0x02, 1], [0x03, 1]]) {
+    assert.deepEqual(attachSignature(Uint8Array.from(tiny), sig), { ok: false, why: 'not an unsigned envelope' }, JSON.stringify(tiny));
+  }
+  assert.equal(attachSignature(new Uint8Array(43), sig).ok, false, 'zeros are not an envelope — the type byte is checked');
+  const one = packUnsigned({ ...good, seed: Uint8Array.from([7]) }).bytes;
+  assert.equal(one.length, 43, '2 + 1-byte seed + 40 is the smallest plain card');
+  assert.equal(attachSignature(one, sig).ok, true);
+  assert.equal(attachSignature(one.slice(0, 42), sig).ok, false, 'one byte short of its own header');
+  assert.equal(attachSignature(Uint8Array.from([...one, 0]), sig).ok, false, 'one byte long');
+  const badLen = one.slice(); badLen[1] = 0;
+  assert.equal(attachSignature(badLen, sig).ok, false, 'a zero seed length is refused');
+  assert.equal(attachSignature(Uint8Array.from([2]), sig).ok, false, 'a 1-byte buffer is refused');
   assert.equal(attachSignature([1], sig).ok, false);
+});
+
+// ── 0x03 · a signed ANSWER carries the full 32-byte hash of the job it answers ──────────────────────
+const cites = Uint8Array.from({ length: 32 }, (_, i) => 100 + i);
+
+test('an answer envelope puts the citation between the data tag and the key, inside the signed bytes', () => {
+  const u = packUnsigned({ ...good, cites });
+  assert.ok(u.ok);
+  const b = u.bytes;
+  assert.equal(b[0], 0x03);
+  assert.equal(b.length, 2 + 3 + 4 + 4 + 32 + 32);
+  assert.deepEqual(Array.from(b.slice(13, 45)), Array.from(cites), 'the citation follows the data tag');
+  assert.deepEqual(Array.from(b.slice(45, 77)), Array.from(pubkey), 'the key follows the citation');
+  const e = attachSignature(b, sig);
+  assert.ok(e.ok);
+  const r = unpack(e.bytes);
+  assert.ok(r.ok);
+  assert.equal(r.type, 0x03);
+  assert.deepEqual(Array.from(r.cites), Array.from(cites));
+  assert.deepEqual(Array.from(r.pubkey), Array.from(pubkey));
+  assert.deepEqual(Array.from(r.sig), Array.from(sig));
+  assert.deepEqual(Array.from(r.signedBytes), Array.from(b), 'the signature covers the citation');
+  assert.equal(r.aucMicro, 820498);
+  assert.deepEqual(Array.from(r.dataTag), Array.from(dataTag));
+});
+
+test('a plain card unpacks with type 0x02 and no citation', () => {
+  const r = unpack(attachSignature(packUnsigned(good).bytes, sig).bytes);
+  assert.equal(r.type, 0x02);
+  assert.equal(r.cites, null);
+});
+
+test('a citation must be exactly 32 bytes', () => {
+  assert.equal(packUnsigned({ ...good, cites: new Uint8Array(31) }).ok, false);
+  assert.equal(packUnsigned({ ...good, cites: new Uint8Array(33) }).ok, false);
+  assert.equal(packUnsigned({ ...good, cites: [1, 2] }).ok, false);
+  assert.match(packUnsigned({ ...good, cites: new Uint8Array(31) }).why, /citation/);
+  assert.equal(packUnsigned({ ...good, cites: undefined }).bytes[0], 0x02, 'no citation is a plain card');
+});
+
+test('an answer is refused if its length does not match its own header', () => {
+  const e = attachSignature(packUnsigned({ ...good, cites }).bytes, sig).bytes;
+  assert.equal(unpack(e.slice(0, e.length - 1)).ok, false);
+  assert.equal(unpack(Uint8Array.from([...e, 0])).ok, false);
+  // a plain card's bytes relabelled as an answer are 32 bytes short of their header
+  const plain = attachSignature(packUnsigned(good).bytes, sig).bytes.slice(); plain[0] = 0x03;
+  assert.equal(unpack(plain).ok, false);
+  const t4 = e.slice(); t4[0] = 0x04;
+  assert.equal(unpack(t4).ok, false, 'type 4 is not an envelope');
+});
+
+test('an answer with the boundary seed lengths 1 and 200 round-trips', () => {
+  for (const n of [1, 200]) {
+    const s = Uint8Array.from({ length: n }, () => 66);
+    const r = unpack(attachSignature(packUnsigned({ ...good, seed: s, cites }).bytes, sig).bytes);
+    assert.equal(r.ok, true);
+    assert.equal(r.seed.length, n);
+    assert.deepEqual(Array.from(r.cites), Array.from(cites));
+  }
 });
 
 test('unpack recovers every field and the exact signed bytes', () => {

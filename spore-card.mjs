@@ -23,7 +23,10 @@
 // which needs ~150 bytes, so its grid is 63×63: the same module size, so the same downscale survival.
 export const V1 = Object.freeze({ MODULES: 37, REPS: 3, CELL_PX: 12, QUIET: 4, MAGIC: 0x53, VER: 1 });
 export const V2 = Object.freeze({ MODULES: 63, REPS: 3, CELL_PX: 12, QUIET: 4, MAGIC: 0x53, VER: 2 });
-const VERSIONS = [V1.VER, V2.VER];
+// v3 carries a signed ANSWER — a v2 envelope that also cites the full 32-byte hash of the job it answers. The
+// citation is never truncated to fit a smaller grid, so the grid grows instead: 69×69, same module size.
+export const V3 = Object.freeze({ MODULES: 69, REPS: 3, CELL_PX: 12, QUIET: 4, MAGIC: 0x53, VER: 3 });
+const VERSIONS = [V1.VER, V2.VER, V3.VER];
 // the sealed, reproduced funnel seed this card version carries (fall-spore, commit 4c3ab7b, held-out AUC 0.820498)
 export const CARD_SEED = '◊ spore.v1 funnel 11 f:579fc3f04c233901';
 
@@ -50,7 +53,12 @@ export function bytesToStr(bytes) {
     if (x < 0x80) { out += String.fromCodePoint(x); i += 1; }
     else if (x >= 0xc0 && x < 0xe0 && i + 1 < n) { out += String.fromCodePoint(((x & 0x1f) << 6) | (b[i + 1] & 0x3f)); i += 2; }
     else if (x >= 0xe0 && x < 0xf0 && i + 2 < n) { out += String.fromCodePoint(((x & 0x0f) << 12) | ((b[i + 1] & 0x3f) << 6) | (b[i + 2] & 0x3f)); i += 3; }
-    else if (x >= 0xf0 && i + 3 < n) { out += String.fromCodePoint(((x & 0x07) << 18) | ((b[i + 1] & 0x3f) << 12) | ((b[i + 2] & 0x3f) << 6) | (b[i + 3] & 0x3f)); i += 4; }
+    else if (x >= 0xf0 && i + 3 < n) {
+      const cp = ((x & 0x07) << 18) | ((b[i + 1] & 0x3f) << 12) | ((b[i + 2] & 0x3f) << 6) | (b[i + 3] & 0x3f);
+      // a 4-byte form can spell a value past U+10FFFF, where fromCodePoint throws — that is malformed: skip it
+      if (cp <= 0x10ffff) out += String.fromCodePoint(cp);
+      i += 4;
+    }
     else { i += 1; } // a malformed lead/continuation byte is skipped, never decoded
   }
   return out;
@@ -126,6 +134,8 @@ const HEADER_BITS = 16; // frame byte-length, stored with REPS-fold redundancy a
 
 // encodeMatrix(frameBytes) -> {ok, cells:Uint8Array(M*M of 0/1)} ; {ok:false} if it will not fit
 export function encodeMatrix(frameBytes, M = V1.MODULES, reps = V1.REPS) {
+  // the majority vote is over exactly three copies; any other count is refused, never allocated
+  if (reps !== V1.REPS) return { ok: false, error: 'only ' + V1.REPS + ' copies are supported' };
   const fb = frameBytes || [];
   const m = clampM(M);
   const cells = new Uint8Array(m * m); // finder corners are drawn by the image layer; the codec ignores them
@@ -149,6 +159,7 @@ const majority = (a, b, c) => ((a + b + c) >= 2 ? 1 : 0);
 
 // decodeMatrix(cells, M) -> {ok, frame:Uint8Array} ; total, CRC-verified via unframe downstream
 export function decodeMatrix(cells, M = V1.MODULES, reps = V1.REPS) {
+  if (reps !== V1.REPS) return { ok: false, error: 'only ' + V1.REPS + ' copies are supported' };
   const m = clampM(M);
   if (!cells || (cells.length | 0) < m * m) return { ok: false, error: 'cell grid too small' };
   const cellsList = dataCells(m);

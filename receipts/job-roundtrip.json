@@ -1,0 +1,167 @@
+{
+  "cases": [
+    {
+      "case": "round-trip (worker)",
+      "expected": "accepted",
+      "ok": true,
+      "reason": "a well-formed, signed, current, first-time job from an allowed requester, within limits",
+      "side": "worker",
+      "stage": "accepted"
+    },
+    {
+      "accept": true,
+      "card": "25bd6fd2850ceae5a28bda635ffdc43d7424e58116d07b1418084acb4bfab6ce",
+      "case": "round-trip",
+      "cites": "bc896a40906b0c921d4fc6010e781a448a081e6f031236178aa34d3a01f322d5",
+      "claimed": "0.820498",
+      "data": "held",
+      "expected": "accepted",
+      "inputs": "ce45cd9e7be4638adee4f2f2f7de36b8451665a4d48386270e8e7f66e562e106",
+      "kind": "spore-card-edge-verify",
+      "outputs": "e16d3f8f660679047b82bf3a2cfe01100400585e3f05191cd637dbb57bcaf351",
+      "reason": "reproduced 0.820498 here — the signature proves who, the re-run proved what",
+      "reproduced": "0.820498",
+      "seal": "verified",
+      "side": "requester",
+      "signer": "6b734a8eff246fe734b38d4046c148eee5f04fe87b3a0a423955a77956de066b",
+      "stage": "accepted",
+      "v": 1
+    },
+    {
+      "case": "tampered-job",
+      "expected": "seal",
+      "ok": false,
+      "reason": "seal mismatch — the requester did not sign this job",
+      "side": "worker",
+      "stage": "seal"
+    },
+    {
+      "case": "replay",
+      "expected": "replay",
+      "ok": false,
+      "reason": "this job was already run here — a replay is refused",
+      "side": "worker",
+      "stage": "replay"
+    },
+    {
+      "case": "expired",
+      "expected": "time",
+      "ok": false,
+      "reason": "expired — refused",
+      "side": "worker",
+      "stage": "time"
+    },
+    {
+      "case": "not-allowed",
+      "expected": "allowed",
+      "ok": false,
+      "reason": "this worker has not agreed to run jobs from this requester",
+      "side": "worker",
+      "stage": "allowed"
+    },
+    {
+      "case": "addressed-elsewhere",
+      "expected": "audience",
+      "ok": false,
+      "reason": "this job is addressed to another worker",
+      "side": "worker",
+      "stage": "audience"
+    },
+    {
+      "accept": false,
+      "card": "bc71267f13a23130572ff0f1fd5eb55bfb34ab83b97c031789067827fd49d844",
+      "case": "wrong-job",
+      "cites": "40569c63723006579576ad7b1b83f47b703ef9539dfdd31c85752416f0511486",
+      "claimed": "0.820498",
+      "data": "unchecked",
+      "expected": "cite",
+      "inputs": null,
+      "kind": "spore-card-edge-verify",
+      "outputs": null,
+      "reason": "this card answers a different job",
+      "reproduced": null,
+      "seal": "verified",
+      "side": "requester",
+      "signer": "6b734a8eff246fe734b38d4046c148eee5f04fe87b3a0a423955a77956de066b",
+      "stage": "cite",
+      "v": 1
+    },
+    {
+      "accept": false,
+      "card": "362d5ebbd91060bd2c0df5fd8df0517ad0b3ae9d5449c20305e0cf710772418c",
+      "case": "lying-worker",
+      "cites": "8263966246159207b40ecd2e10fc28837c9249520ae6aee18badf6492a4cce75",
+      "claimed": "0.950000",
+      "data": "held",
+      "expected": "rerun",
+      "inputs": "ce45cd9e7be4638adee4f2f2f7de36b8451665a4d48386270e8e7f66e562e106",
+      "kind": "spore-card-edge-verify",
+      "outputs": "e16d3f8f660679047b82bf3a2cfe01100400585e3f05191cd637dbb57bcaf351",
+      "reason": "the claim does not reproduce — the card says 0.950000, the re-run here gives 0.820498",
+      "reproduced": "0.820498",
+      "seal": "verified",
+      "side": "requester",
+      "signer": "6b734a8eff246fe734b38d4046c148eee5f04fe87b3a0a423955a77956de066b",
+      "stage": "rerun",
+      "v": 1
+    },
+    {
+      "accept": true,
+      "card": "25bd6fd2850ceae5a28bda635ffdc43d7424e58116d07b1418084acb4bfab6ce",
+      "case": "from-picture",
+      "cites": "bc896a40906b0c921d4fc6010e781a448a081e6f031236178aa34d3a01f322d5",
+      "claimed": "0.820498",
+      "data": "held",
+      "expected": "accepted",
+      "inputs": "ce45cd9e7be4638adee4f2f2f7de36b8451665a4d48386270e8e7f66e562e106",
+      "kind": "spore-card-edge-verify",
+      "outputs": "e16d3f8f660679047b82bf3a2cfe01100400585e3f05191cd637dbb57bcaf351",
+      "reason": "reproduced 0.820498 here — the signature proves who, the re-run proved what",
+      "reproduced": "0.820498",
+      "seal": "verified",
+      "side": "requester",
+      "signer": "6b734a8eff246fe734b38d4046c148eee5f04fe87b3a0a423955a77956de066b",
+      "stage": "accepted",
+      "v": 1
+    }
+  ],
+  "data": {
+    "file": "data/online_shoppers_intention.csv",
+    "sha256": "b3055ee355f59134d851d32641183cb4a8b45def7124d2f50442a042f358e0d9"
+  },
+  "grow": {
+    "champion": "◊ spore.v1 funnel 11 f:579fc3f04c233901",
+    "championConfirmFitness": 0.941045,
+    "evals": 104,
+    "heldAuc": 0.820498,
+    "keepRule": "selected on the grow’s inner split; sealed only because it then beat the stem on a separate confirmation split of the training months (overlapping rows: this reduces selection bias, it does not remove it); held-out months were measured, never used to decide",
+    "selectionFitness": 0.938966,
+    "stemConfirmFitness": 0.918899
+  },
+  "held": true,
+  "honestLimit": "the re-run proves the answer’s claim is true; it does not prove the worker returned the BEST genome its grow found",
+  "job": {
+    "context": "all",
+    "dataTag": "b3055ee3",
+    "expires": 1760003600,
+    "hash": "bc896a40906b0c921d4fc6010e781a448a081e6f031236178aa34d3a01f322d5",
+    "issued": 1760000000,
+    "kind": "grow",
+    "maxEvals": 200,
+    "nonce": "00a1b2c3d4e5f607",
+    "requester": "29e5833a915a6429a4e3a7948475c338ef436eb82be89c92f059704403db9d55",
+    "sig": "6d4824b5d2e3205fc418555555a5562c2ac6fe03cbeaa9049a56dfc123959ff53157bc8fe5ac0a79e6080ac5df6e1679086736a9633f0334dc81e904fe456509",
+    "spore": "◊ spore.v1 funnel 11 g:12.2.10",
+    "v": 1,
+    "worker": "6b734a8eff246fe734b38d4046c148eee5f04fe87b3a0a423955a77956de066b"
+  },
+  "kind": "spore-card-job-roundtrip",
+  "nodes": {
+    "requester": "29e5833a915a6429a4e3a7948475c338ef436eb82be89c92f059704403db9d55",
+    "worker": "6b734a8eff246fe734b38d4046c148eee5f04fe87b3a0a423955a77956de066b"
+  },
+  "rule": "growing is the worker’s expensive work; checking the grown answer is cheap — and a signature proves who, only the re-run proves what",
+  "tests": 10,
+  "topology": "two nodes, one process — the live two-browser hand-off is mesh.html",
+  "v": 1
+}

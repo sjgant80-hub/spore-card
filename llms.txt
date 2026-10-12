@@ -14,6 +14,13 @@
 - A signed (v2) card binds seed + claimed score + data tag + Ed25519 key. A receiving node checks the seal, then that it holds the data, then RE-RUNS the seed: the score must reproduce or the card is refused, however well signed.
 - receipts/edge-verify.json re-runs byte-for-byte in CI (node tools/edge-receipt.mjs --check).
 
+## Hand off the heavy work
+- A requester signs a job (grow spore, data tag, evals cap, nonce, expiry, and the one worker key it is addressed to). The worker refuses a tampered, expired, replayed, misaddressed, not-allowed or over-limit job before it grows anything; running jobs is opt-in.
+- The answer is a v3 card: the champion as a fixed seed, its score, and a citation of the exact job, signed by the worker. The requester checks the citation and the signer, then re-runs the seed — the score must reproduce.
+- An optional model (local, or the user's own key) may only PROPOSE genomes; each is kept only if it wins on the grow's inner split. The job passes with no model.
+- receipts/job-roundtrip.json and receipts/byok-roundtrip.json re-run in CI (tools/job-receipt.mjs --check, tools/byok-receipt.mjs --check).
+- Limits: a re-run proves the claim, not that the worker found the best genome; both nodes ran on one machine (two-device run pending).
+
 ## Links
 - Mesh: https://sjgant80-hub.github.io/spore-card/mesh.html
 - Live: https://sjgant80-hub.github.io/spore-card/

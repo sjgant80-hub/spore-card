@@ -91,7 +91,7 @@
 
   <div class="panel">
     <h2>3 · Send a card</h2>
-    <p>Send yours — and, to see the refusals for yourself, a copy with one byte changed, or a perfectly signed card that claims a score it did not earn.</p>
+    <p>Send yours — and, to see the refusals for yourself, a copy with one byte changed, or a perfectly signed card that claims a score it did not earn (the false claim is signed with a throwaway demo key, never yours).</p>
     <div class="row">
       <button class="btn" id="sendGenuine" disabled>Send my signed card</button>
       <button class="btn warn" id="sendTampered" disabled>Send a tampered copy</button>
@@ -101,11 +101,26 @@
   </div>
 
   <div class="panel">
+    <h2>4 · Hand off the heavy work</h2>
+    <p>Growing a seed takes about a hundred evaluations — slow on a phone. Hand the job to the connected machine: it grows the seed,
+    keeps the result only if it beat the ungrown version, and sends back a signed answer. This machine then checks the answer by
+    re-running it — about a hundred times cheaper than growing it. The job is signed and addressed to that one machine only.</p>
+    <div class="row">
+      <button class="btn" id="handoff" disabled>Grow it on the connected machine</button>
+      <button class="btn ghost" id="saveJob" disabled>Save the job as a file instead</button>
+    </div>
+    <label class="chk" style="margin-top:12px"><input type="checkbox" id="runJobs"> <span>Run grow jobs that the connected machine sends me (off until you tick it — a worker never runs work it did not agree to).</span></label>
+    <div class="status" id="jobStatus"></div>
+    <div class="drop" id="jobDrop" style="margin-top:10px">Or drop a saved job file here to run it on this machine.
+      <input type="file" id="jobFile" accept="application/json" hidden> <a href="#" id="jobBrowse">choose a job file</a></div>
+  </div>
+
+  <div class="panel">
     <h2>Cards this node received</h2>
     <p>Each one is checked here: the signature, then whether this machine holds the same data, then a re-run of the seed.</p>
     <div id="inbox"><div class="status">nothing yet</div></div>
     <div class="drop" id="drop" style="margin-top:10px">Or drop a card picture here — the file is the connection.
-      <input type="file" id="file" accept="image/png" hidden> <a href="#" id="browse">choose a file</a></div>
+      <input type="file" id="file" accept="image/png,image/jpeg" hidden> <a href="#" id="browse">choose a file</a></div>
   </div>
 
   <ol class="steps">
@@ -127,14 +142,18 @@ import * as N from './mesh-node.mjs';
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const short = (u8) => N.toHex(u8).slice(0, 12) + '…';
+const now = () => Math.floor(Date.now() / 1000);
+const paint = () => new Promise((r) => setTimeout(r, 30));     // let the status show before a long synchronous step
 
-let tools = null, mine = null, link = null;
-const received = [];
+let tools = null, mine = null, link = null, peerKey = null, queuedJob = null;
+const received = [], pending = new Map();                     // jobHash → the job this node sent and awaits
+const claim = N.makeClaims();
 
 async function boot() {
   try {
     tools = await N.makeTools();
-    $('me').innerHTML = 'key ' + esc(short(tools.pubkey)) + ' · data ' + esc(tools.dataSha256Hex.slice(0, 12)) + '… (UCI shoppers, ' + 'held on this machine)';
+    $('me').innerHTML = 'key ' + esc(short(tools.pubkey)) + ' (kept ' + esc(tools.keyStored) + ', cannot be copied off this device) · data '
+      + esc(tools.dataSha256Hex.slice(0, 12)) + '… (UCI shoppers, held on this machine)';
     $('make').disabled = false; $('host').disabled = false; $('join').disabled = false;
   } catch (e) { $('me').innerHTML = '<span class="no">' + esc(e.message || e) + ' — this browser may not support Ed25519 (WebCrypto).</span>'; }
 }
@@ -147,76 +166,92 @@ async function makeCard() {
   $('card').hidden = false;
   mine = { ...card, png: await N.canvasPng($('card')) };
   $('makeStatus').innerHTML = '<span class="ok">grown here: held-out AUC ' + card.heldAuc.toFixed(6) + '</span> — signed with your key.';
-  $('dl').disabled = false; refreshSend();
+  $('dl').disabled = false; refresh();
   return mine;
 }
 $('make').onclick = makeCard;
-$('dl').onclick = () => { if (!mine) return; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([mine.png], { type: 'image/png' })); a.download = 'signed-spore-card.png'; a.click(); };
+$('dl').onclick = () => { if (mine) download(mine.png, 'signed-spore-card.png', 'image/png'); };
+function download(bytes, name, type) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([bytes], { type })); a.download = name; a.click(); }
 
-function refreshSend() {
+function refresh() {
   const live = !!(link && link.open);
   for (const id of ['sendGenuine', 'sendTampered', 'sendLie']) $(id).disabled = !(live && mine);
+  $('handoff').disabled = !(live && peerKey); $('saveJob').disabled = !peerKey;
 }
 // ticked: the default STUN server (crosses networks). unticked: no third party at all.
 const linkOpts = () => ($('stun').checked ? {} : { stun: [] });
 // The reply travels back BY HAND (a message, an email) — that can take minutes, so pairing waits this long.
 const PAIR_WINDOW = 10 * 60 * 1000;
-function onOpen() {
-  $('linkStatus').innerHTML = '<span class="ok">connected — a direct link, no server in the path</span>';
-  refreshSend();
-}
-// Listen from the moment the link exists, not from the moment it opens: a listener attached late misses
-// nothing only if it was never late. (The first two-node run lost every card to exactly this.)
+function onOpen() { $('linkStatus').innerHTML = '<span class="ok">connected — a direct link, no server in the path</span>'; refresh(); }
+const failed = (e) => { $('linkStatus').innerHTML = '<span class="no">' + esc((e && e.message) || e) + '</span>'; return null; };
+// Listen from the moment the link exists, not from the moment it opens (the first two-node run lost every card to a
+// late listener). A new link closes the old one, so a failed attempt never leaks a connection.
 function newLink() {
+  if (link) { try { link.close(); } catch { /* already closed */ } }
   link = N.makeLink(linkOpts());
   if (!link.ok) { $('linkStatus').textContent = link.why; return false; }
-  link.on(N.makeAssembler(onCard));
+  const assemble = N.makeAssembler(onCard);
+  link.on((msg) => { if (msg && msg.t === 'card') assemble(msg); else if (msg && msg.t === 'job') onJob(msg.job); });
   return true;
+}
+function readBlob(text, role) {
+  let obj; try { obj = JSON.parse(atob(String(text).trim())); } catch { return { ok: false, why: 'that is not an invite' }; }
+  const r = N.readInvite(obj);
+  if (!r.ok) return r;
+  if (r.role !== role) return { ok: false, why: 'expected an ' + role };
+  const key = N.keyHexFromInviteId(r.id);
+  return key ? { ...r, key } : { ok: false, why: 'the invite carries no usable key' };
 }
 
 async function host() {
   if (!newLink()) return null;
   $('hostBox').hidden = false; $('joinBox').hidden = true;
   $('linkStatus').textContent = 'making an invite…';
-  const sdp = await link.invite();
-  const inv = N.makeInvite('offer', N.inviteId(tools.pubkey), sdp);
-  if (!inv.ok) { $('linkStatus').textContent = inv.why; return null; }
-  $('inviteOut').value = btoa(JSON.stringify(inv.invite));
-  $('linkStatus').textContent = 'invite ready — waiting for their reply';
-  return $('inviteOut').value;
+  try {
+    const inv = N.makeInvite('offer', N.inviteId(tools.pubkey), await link.invite());
+    if (!inv.ok) return failed(inv.why);
+    $('inviteOut').value = btoa(JSON.stringify(inv.invite));
+    $('linkStatus').textContent = 'invite ready — waiting for their reply';
+    return $('inviteOut').value;
+  } catch (e) { return failed(e); }
 }
 async function accept(text) {
-  let obj; try { obj = JSON.parse(atob(String(text).trim())); } catch { $('linkStatus').innerHTML = '<span class="no">that is not an invite</span>'; return null; }
-  const r = N.readInvite(obj);
-  if (!r.ok || r.role !== 'offer') { $('linkStatus').innerHTML = '<span class="no">refused: ' + esc(r.why || 'not an offer') + '</span>'; return null; }
+  const r = readBlob(text, 'offer');
+  if (!r.ok) return failed('refused: ' + r.why);
   if (!newLink()) return null;
-  const ans = await link.accept(r.sdp);
-  const inv = N.makeInvite('answer', N.inviteId(tools.pubkey), ans);
-  $('replyOut').value = btoa(JSON.stringify(inv.invite));
-  $('linkStatus').textContent = 'reply ready — send it back; this page will connect as soon as they paste it';
-  link.ready(PAIR_WINDOW).then(onOpen, (e) => { $('linkStatus').innerHTML = '<span class="no">' + esc(e.message) + '</span>'; });
-  return $('replyOut').value;
+  try {
+    const inv = N.makeInvite('answer', N.inviteId(tools.pubkey), await link.accept(r.sdp));
+    peerKey = r.key;
+    $('replyOut').value = btoa(JSON.stringify(inv.invite));
+    $('linkStatus').textContent = 'reply ready — send it back; this page will connect as soon as they paste it';
+    link.ready(PAIR_WINDOW).then(onOpen, failed);
+    refresh();
+    return $('replyOut').value;
+  } catch (e) { return failed('that invite could not be used — ' + ((e && e.message) || e)); }
 }
 async function finish(text) {
-  let obj; try { obj = JSON.parse(atob(String(text).trim())); } catch { $('linkStatus').innerHTML = '<span class="no">that is not a reply</span>'; return false; }
-  const r = N.readInvite(obj);
-  if (!r.ok || r.role !== 'answer') { $('linkStatus').innerHTML = '<span class="no">refused: ' + esc(r.why || 'not an answer') + '</span>'; return false; }
-  await link.finish(r.sdp);
-  $('linkStatus').textContent = 'connecting…';
-  try { await link.ready(PAIR_WINDOW); onOpen(); return true; } catch (e) { $('linkStatus').innerHTML = '<span class="no">' + esc(e.message) + '</span>'; return false; }
+  const r = readBlob(text, 'answer');
+  if (!r.ok) { failed('refused: ' + r.why); return false; }
+  try {
+    await link.finish(r.sdp);
+    peerKey = r.key;
+    $('linkStatus').textContent = 'connecting…';
+    await link.ready(PAIR_WINDOW); onOpen(); return true;
+  } catch (e) { failed('that reply could not be used — ' + ((e && e.message) || e)); return false; }
 }
 $('host').onclick = host;
 $('join').onclick = () => { $('joinBox').hidden = false; $('hostBox').hidden = true; };
 $('accept').onclick = () => accept($('inviteIn').value);
 $('finish').onclick = () => finish($('replyIn').value);
 
+// ── 3 · cards ───────────────────────────────────────────────────────────────────────────────────────
 async function pngFor(kind) {
   if (kind === 'genuine') return mine.png;
-  let env;
+  let env, signer = short(tools.pubkey);
   if (kind === 'tampered') { env = mine.envelope.slice(); env[5] ^= 0x01; }
-  else { const lie = await N.sealClaim(N.CARD_SEED, 900000, tools); env = lie.envelope; }
+  else { const demo = await tools.demo(); env = (await N.sealClaim(N.CARD_SEED, 900000, demo)).envelope; signer = short(demo.pubkey) + ' (a throwaway demo key)'; }
   const cv = document.createElement('canvas');
-  N.drawSignedCard(cv, N.cellsForEnvelope(env), { claim: kind === 'tampered' ? '(altered)' : '0.900000', signer: short(tools.pubkey) });
+  N.drawSignedCard(cv, N.cellsForEnvelope(env), { claim: kind === 'tampered' ? '(altered)' : '0.900000', signer });
   return N.canvasPng(cv);
 }
 async function send(kind) {
@@ -228,33 +263,103 @@ $('sendGenuine').onclick = () => send('genuine');
 $('sendTampered').onclick = () => send('tampered');
 $('sendLie').onclick = () => send('false-claim');
 
-async function judgePicture(png, label, transit) {
+// ── 4 · jobs ────────────────────────────────────────────────────────────────────────────────────────
+async function newJobFor(worker) {
+  const job = await N.makeJob({ spore: N.GROW_SPORE, maxEvals: 200, now: now(), nonce: N.randomNonce(), worker }, tools);
+  pending.set(await N.jobHashHex(job, tools), job);
+  return job;
+}
+async function handoff() {
+  const job = await newJobFor(peerKey);
+  link.send({ t: 'job', job });
+  $('jobStatus').textContent = 'job sent to ' + peerKey.slice(0, 12) + '… — waiting for its signed answer';
+  return job;
+}
+$('handoff').onclick = handoff;
+$('saveJob').onclick = async () => {
+  const job = await newJobFor(peerKey);
+  download(new TextEncoder().encode(JSON.stringify(job, null, 2)), 'grow-job.json', 'application/json');
+  $('jobStatus').textContent = 'job saved — give the file to ' + peerKey.slice(0, 12) + '… and drop its answer card into "Cards this node received"';
+};
+
+function onJob(job) {
+  if (!$('runJobs').checked) {
+    queuedJob = job;
+    $('jobStatus').innerHTML = 'a grow job arrived from the connected machine — tick the box to run it. <button class="btn ghost" type="button" id="runQueued">Run it now</button>';
+    $('runQueued').onclick = () => { const j = queuedJob; queuedJob = null; runHere(j, 'link'); };
+    return;
+  }
+  runHere(job, 'link');
+}
+async function runHere(job, via) {
+  $('jobStatus').textContent = 'growing the seed for the job on this machine… (it can take a minute — the page will pause while it grows)';
+  await paint();
+  const worker = { now: now(), maxEvals: 300, claim,
+    // over the link: only the paired machine may ask; from a dropped file: you chose to run it
+    allow: (r) => via === 'file' || r === peerKey };
+  const out = await N.runJob(job, tools, worker);
+  if (!out.ok) { $('jobStatus').innerHTML = '<span class="no">refused the job — ' + esc(out.verdict.stage) + ': ' + esc(out.verdict.reason) + '</span>'; return out; }
+  const cv = document.createElement('canvas');
+  N.drawSignedCard(cv, out.cells, { title: 'A signed answer', claim: out.grow.heldAuc.toFixed(6), signer: short(tools.pubkey) });
+  const png = await N.canvasPng(cv);
+  const jobHash = await N.jobHashHex(job, tools);
+  if (via === 'link' && link && link.open) {
+    for (const m of await N.cardMessages(png, 'answer', { jobHash })) link.send(m);
+    $('jobStatus').innerHTML = '<span class="ok">grew it (' + out.grow.evals + ' evaluations) and sent back the signed answer</span>';
+  } else {
+    download(png, 'grow-answer.png', 'image/png');
+    $('jobStatus').innerHTML = '<span class="ok">grew it (' + out.grow.evals + ' evaluations) — the answer card is downloading; send it back to whoever asked</span>';
+  }
+  return out;
+}
+const jobDrop = $('jobDrop');
+const runJobFile = async (f) => {
+  let job; try { job = JSON.parse(new TextDecoder().decode(new Uint8Array(await f.arrayBuffer()))); } catch { $('jobStatus').innerHTML = '<span class="no">that file is not a job</span>'; return; }
+  runHere(job, 'file');
+};
+$('jobBrowse').onclick = (e) => { e.preventDefault(); $('jobFile').click(); };
+$('jobFile').onchange = (e) => { const f = e.target.files[0]; if (f) runJobFile(f); };
+['dragenter', 'dragover'].forEach((ev) => jobDrop.addEventListener(ev, (e) => { e.preventDefault(); jobDrop.classList.add('hot'); }));
+['dragleave', 'drop'].forEach((ev) => jobDrop.addEventListener(ev, (e) => { e.preventDefault(); jobDrop.classList.remove('hot'); }));
+jobDrop.addEventListener('drop', (e) => { const f = e.dataTransfer.files[0]; if (f) runJobFile(f); });
+
+// ── the inbox: every card judged here; an answer is judged against the job this node sent ───────────────
+async function judgePicture(png, label, transit, job = null) {
   const got = await N.envelopeFromPicture(png);
-  const r = got.ok ? await N.verifyAtEdge(got.envelope, tools, label)
-    : { accept: false, stage: 'parse', reason: 'could not read a signed card off this picture — ' + got.why, case: label };
-  const entry = { ...r, transit };
+  let r;
+  if (!got.ok) r = { accept: false, stage: 'parse', reason: 'could not read a signed card off this picture — ' + got.why, case: label };
+  else if (job === null) {
+    // a dropped answer: match it to a job this node is waiting for, if any
+    for (const [, j] of pending) { const t = await N.verifyAtEdge(got.envelope, tools, label, j); if (t.stage !== 'cite') { r = t; job = j; break; } }
+    if (!r) r = await N.verifyAtEdge(got.envelope, tools, label);
+  } else r = await N.verifyAtEdge(got.envelope, tools, label, job);
+  const entry = { ...r, transit, job: job ? await N.jobHashHex(job, tools) : null };
   received.push(entry);
+  if (r.accept && job) { pending.delete(entry.job); $('jobStatus').innerHTML = '<span class="ok">answer accepted — this machine re-ran it and got ' + esc(r.reproduced) + '</span>'; }
   if (received.length === 1) $('inbox').innerHTML = '';
   const div = document.createElement('div'); div.className = 'card-in';
   div.innerHTML = '<span class="chip ' + (r.accept ? 'a' : 'r') + '">' + (r.accept ? 'ACCEPTED' : 'REFUSED') + '</span>'
-    + '<b>' + esc(label) + '</b> · stage: ' + esc(r.stage) + '<div class="status">' + esc(r.reason) + '</div>'
+    + '<b>' + esc(label) + '</b>' + (job ? ' (the answer to your job)' : '') + ' · stage: ' + esc(r.stage) + '<div class="status">' + esc(r.reason) + '</div>'
     + (transit ? '<div class="status">' + (transit.intact ? '<span class="ok">arrived intact</span> — the bytes match what was sent (' + esc(transit.sha.slice(0, 12)) + '…)' : '<span class="no">changed in transit</span>') + '</div>' : '')
     + '<div class="row" style="margin-top:8px"><button class="btn ghost" type="button">Download the receipt</button></div>';
-  div.querySelector('button').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(entry, null, 2)], { type: 'application/json' })); a.download = 'edge-receipt-' + label + '.json'; a.click(); };
+  div.querySelector('button').onclick = () => download(new TextEncoder().encode(JSON.stringify(entry, null, 2)), 'edge-receipt-' + label + '.json', 'application/json');
   $('inbox').appendChild(div);
   return entry;
 }
-const onCard = (c) => judgePicture(c.png, c.label, { intact: c.intact, sha: c.sha, sentSha: c.sentSha });
+const onCard = (c) => judgePicture(c.png, c.label, { intact: c.intact, sha: c.sha, sentSha: c.sentSha },
+  c.label === 'answer' && c.jobHash && pending.has(c.jobHash) ? pending.get(c.jobHash) : null);
 
 const drop = $('drop');
 $('browse').onclick = (e) => { e.preventDefault(); $('file').click(); };
-$('file').onchange = async (e) => { const f = e.target.files[0]; if (f) judgePicture(new Uint8Array(await f.arrayBuffer()), f.name, null); };
+$('file').onchange = async (e) => { const f = e.target.files[0]; if (f) judgePicture(new Uint8Array(await f.arrayBuffer()), f.name.slice(0, 40), null); };
 ['dragenter', 'dragover'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('hot'); }));
 ['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('hot'); }));
-drop.addEventListener('drop', async (e) => { const f = e.dataTransfer.files[0]; if (f) judgePicture(new Uint8Array(await f.arrayBuffer()), f.name, null); });
+drop.addEventListener('drop', async (e) => { const f = e.dataTransfer.files[0]; if (f) judgePicture(new Uint8Array(await f.arrayBuffer()), f.name.slice(0, 40), null); });
 
-// a handle for the two-node run (tools/ and the receipt) — it does nothing a visitor cannot do by hand
-window.meshNode = { boot, makeCard, host, accept, finish, send, received, get open() { return !!(link && link.open); }, get key() { return tools && N.toHex(tools.pubkey); } };
+// a handle for the two-node run (the receipts) — it does nothing a visitor cannot do by hand
+window.meshNode = { boot, makeCard, host, accept, finish, send, handoff, runHere, received, pending,
+  setRunJobs(v) { $('runJobs').checked = !!v; },
+  get open() { return !!(link && link.open); }, get key() { return tools && N.toHex(tools.pubkey); }, get peer() { return peerKey; } };
 boot();
 </script>
 </body>

@@ -4,6 +4,7 @@
       "accept": true,
       "card": "af08daef22824ad7d80069695aa9df9d3141dca6acb9ed72c790a828e0d34b5c",
       "case": "genuine",
+      "cites": null,
       "claimed": "0.820498",
       "data": "held",
       "expected": {
@@ -24,6 +25,7 @@
       "accept": false,
       "card": "b619537bc979afca57f0f2689c1926a7f584ad5a2983d77cdd04fe98da19d536",
       "case": "tampered",
+      "cites": null,
       "claimed": "0.820498",
       "data": "unchecked",
       "expected": {
@@ -44,6 +46,7 @@
       "accept": false,
       "card": "f41f26c022687f06c383f9c7d8955ade32ade3c9701cd68952973aaba4183fef",
       "case": "false-claim",
+      "cites": null,
       "claimed": "0.900000",
       "data": "held",
       "expected": {
@@ -62,8 +65,30 @@
     },
     {
       "accept": false,
+      "card": "1ccfe5a33136870c5b03c6e1a077f0a78d8807552eb3d58b32ec4ba3c75d9351",
+      "case": "grow-bomb",
+      "cites": null,
+      "claimed": "0.900000",
+      "data": "unchecked",
+      "expected": {
+        "accept": false,
+        "stage": "seed"
+      },
+      "inputs": null,
+      "kind": "spore-card-edge-verify",
+      "outputs": null,
+      "reason": "not a seed this node will re-run — it is a grow spore — a verifier re-runs a fixed genome and never grows",
+      "reproduced": null,
+      "seal": "verified",
+      "signer": "bc7cbcb5636375fa1d82434d466724d92377f53b980695dd49d26d0ce12205a5",
+      "stage": "seed",
+      "v": 1
+    },
+    {
+      "accept": false,
       "card": "af08daef22824ad7d80069695aa9df9d3141dca6acb9ed72c790a828e0d34b5c",
       "case": "other-data",
+      "cites": null,
       "claimed": "0.820498",
       "data": "not held",
       "expected": {
@@ -84,6 +109,7 @@
       "accept": false,
       "card": "da29bd63e3a80180e4c05846900083acbc19baa8ac9c2de463345636d9e62491",
       "case": "unsigned-v1",
+      "cites": null,
       "claimed": null,
       "data": "unchecked",
       "expected": {
@@ -104,6 +130,7 @@
       "accept": true,
       "card": "af08daef22824ad7d80069695aa9df9d3141dca6acb9ed72c790a828e0d34b5c",
       "case": "screenshot",
+      "cites": null,
       "claimed": "0.820498",
       "data": "held",
       "expected": {
@@ -133,7 +160,7 @@
   },
   "rule": "a signature proves who; only a re-run on the receiving node proves what (MESH_PLAN 2b)",
   "seed": "◊ spore.v1 funnel 11 f:579fc3f04c233901",
-  "tests": 6,
+  "tests": 7,
   "topology": "two nodes, one process — the two-browser WebRTC run is mesh.html; two devices pending",
   "v": 1
 }

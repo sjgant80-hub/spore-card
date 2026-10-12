@@ -7,9 +7,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
-      - name: tests (codec, signed envelope, edge verdict, mesh integration, image/survival, chunk)
-        run: node --test spore-card.test.mjs envelope.test.mjs edge.test.mjs mesh.test.mjs spore-card-image.test.mjs
-      - name: mutation gate (codec + envelope + edge verdict)
+      - name: tests (codec, envelope, edge verdict, job, proposer, mesh + job integration, image/survival, chunk)
+        run: node --test spore-card.test.mjs envelope.test.mjs edge.test.mjs job.test.mjs proposer.test.mjs grow-on.test.mjs mesh.test.mjs job-flow.test.mjs spore-card-image.test.mjs
+      - name: mutation gate (codec + envelope + edge verdict + job + proposer)
         run: node witness-all.mjs
-      - name: the edge-verify done-test re-runs and must reproduce the committed receipt byte for byte
+      - name: MESH step 0 — the edge-verify done-test re-runs and must reproduce its receipt byte for byte
         run: node tools/edge-receipt.mjs --check
+      - name: MESH step 1 — the signed-job round trip re-runs and must reproduce its receipt byte for byte
+        run: node tools/job-receipt.mjs --check
+      - name: MESH step 4 — the with/without-model run re-runs from its recorded suggestions, byte for byte
+        run: node tools/byok-receipt.mjs --check

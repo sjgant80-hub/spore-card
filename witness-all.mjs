@@ -24,7 +24,10 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 export const PAIRS = [
   ['spore-card.mjs', 'spore-card.test.mjs'],   // the bit codec (v1 bare seed, v2 signed envelope)
   ['envelope.mjs', 'envelope.test.mjs'],       // the signed envelope's layout
-  ['edge.mjs', 'edge.test.mjs'],               // the edge verdict: parse → seal → data → re-run
+  ['edge.mjs', 'edge.test.mjs'],               // the edge verdict: parse → seal → cite → data → re-run
+  ['job.mjs', 'job.test.mjs'],                 // the signed job and the worker's fail-closed check
+  ['proposer.mjs', 'proposer.test.mjs'],       // the untrusted model's suggestions, parsed strictly
+  ['grow-on.mjs', 'grow-on.test.mjs'],         // the worker's grow + the keep rule: a proposal must strictly win
 ];
 // Not gated here, with the reason: mesh.mjs and node-tools.mjs are orchestration and I/O (crypto, hashing,
 // germination handed in) — mesh.test.mjs runs them end to end with real Ed25519 on the real dataset, and

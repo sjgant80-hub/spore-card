@@ -6,6 +6,9 @@ import { createHash, createPrivateKey, createPublicKey, sign as edSign, verify a
 import { parseSessions } from './organ.mjs';
 import { germinate as sporeGerminate, organBody } from './spore.mjs';
 
+export { growOn } from './grow-on.mjs';
+import { growOn } from './grow-on.mjs';
+
 const PKCS8_ED25519 = Buffer.from('302e020100300506032b657004220420', 'hex');
 
 export const sha256hex = (bytes) => createHash('sha256').update(Buffer.from(bytes)).digest('hex');
@@ -43,5 +46,6 @@ export function nodeTools({ seed32, csvPath }) {
       if (!r || !r.ok) return { ok: false };
       return { ok: true, heldAuc: r.heldAuc, body: JSON.stringify(organBody(r.organ)) };
     },
+    grow(sporeStr, proposals = []) { return growOn(data, sporeStr, proposals); },
   };
 }

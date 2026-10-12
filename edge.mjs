@@ -1,13 +1,15 @@
 // ════════════════════════════════════════════════════════════════
 // edge.mjs — EDGE VERIFY: a node that receives a card does not trust it; it reproduces it.
 //
-// The mesh's one rule (MESH_PLAN §2b): re-run beats attest. A receiving node takes four facts about a card
+// The mesh's one rule (MESH_PLAN §2b): re-run beats attest. A receiving node takes the facts about a card
 // and rules on them, in this order, stopping at the first that fails:
 //
 //   1. parse   — is it a signed spore envelope at all?
 //   2. seal    — does the Ed25519 signature cover these exact bytes? (fail = "seal mismatch")
-//   3. data    — does this node hold the dataset the claim was measured on? (else the claim cannot be re-run)
-//   4. re-run  — germinate the seed HERE; the held-out score must come out identical to the claim.
+//   3. cite    — only when awaiting an answer: does it cite MY job, signed by the worker I sent it to?
+//   4. seed    — is the seed a FIXED genome (cheap to re-run)? A verifier never grows.
+//   5. data    — does this node hold the dataset the claim was measured on? (else the claim cannot be re-run)
+//   6. re-run  — germinate the seed HERE; the held-out score must come out identical to the claim.
 //
 // A signature proves WHO. Only the re-run proves WHAT. So a card can be perfectly signed and still be refused
 // — if its claim does not reproduce on the receiver's own machine.
@@ -18,7 +20,7 @@
 // architecture, created by Thomas Frumkin.
 // ════════════════════════════════════════════════════════════════
 
-export const STAGES = Object.freeze(['parse', 'seal', 'data', 'rerun', 'accepted']);
+export const STAGES = Object.freeze(['parse', 'seal', 'cite', 'seed', 'data', 'rerun', 'accepted']);
 
 const micro = (m) => (m / 1000000).toFixed(6);
 
@@ -28,6 +30,12 @@ const micro = (m) => (m / 1000000).toFixed(6);
  *   sigOk            — true only if the Ed25519 signature verified over parsed.signedBytes
  *   dataTagOk        — true only if this node's dataset hashes to the card's data tag
  *   reproducedMicro  — the held-out AUC this node got by germinating the seed itself, in millionths
+ *   expectCites      — true when this node is waiting for the ANSWER to a job it sent
+ *   citesOk          — true only if the answer's citation equals the hash of that job
+ *   signerOk         — true only if the answer is signed by the worker that job was addressed to
+ *   seedOk           — true only if the seed is a FIXED genome this node will re-run (for an answer: of the same
+ *                      recipe and seed number as the job). A verifier never grows: re-running must stay cheap, or a
+ *                      self-signed card could make any node do unbounded work. seedWhy may say why not.
  */
 export function judge(facts) {
   const f = (facts && typeof facts === 'object') ? facts : {};
@@ -37,6 +45,14 @@ export function judge(facts) {
   }
   if (f.sigOk !== true) {
     return { accept: false, stage: 'seal', reason: 'seal mismatch — the Ed25519 signature does not cover these bytes' };
+  }
+  if (f.expectCites === true) {
+    if (p.type !== 0x03) return { accept: false, stage: 'cite', reason: 'not an answer — this card cites no job' };
+    if (f.citesOk !== true) return { accept: false, stage: 'cite', reason: 'this card answers a different job' };
+    if (f.signerOk !== true) return { accept: false, stage: 'cite', reason: 'this answer is signed by a node the job was not sent to' };
+  }
+  if (f.seedOk !== true) {
+    return { accept: false, stage: 'seed', reason: 'not a seed this node will re-run — ' + (typeof f.seedWhy === 'string' ? f.seedWhy : 'it is not a fixed genome') };
   }
   if (f.dataTagOk !== true) {
     return { accept: false, stage: 'data', reason: 'cannot re-run — this node does not hold the data the claim was measured on' };
@@ -66,6 +82,7 @@ export function receipt(r) {
     case: typeof o.label === 'string' ? o.label : null,
     card: hex(o.cardHash),
     signer: p ? toHex(p.pubkey) : null,
+    cites: p && p.cites instanceof Uint8Array ? toHex(p.cites) : null,
     claimed: p ? micro(p.aucMicro) : null,
     seal: o.sigOk === true ? 'verified' : (p ? 'mismatch' : 'unread'),
     data: o.dataTagOk === true ? 'held' : (o.dataTagOk === false ? 'not held' : 'unchecked'),

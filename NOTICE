@@ -6,7 +6,7 @@ Vendored, credited:
 - png.mjs                     — sjgant80-hub/fallkard-forge (MIT): PNG chunk primitives (lossless layer).
 - vendor/fall-os/webrtc.mjs   — sjgant80-hub/fall-os (MIT): the hand-pasted-invite WebRTC link (no signalling server).
 - vendor/fall-federate/signaling.mjs — sjgant80-hub/fall-federate (MIT): the witness-gated invite envelope check.
-- .witness/witness.mjs        — the mutation gate engine (claudedidy / sjgant80-hub), vendored and credited.
+- .witness/witness.mjs        — the mutation gate engine (sjgant80-hub/witness, MIT), vendored and credited.
 
 The edge re-run is the-doubt's primitive ("a thing cannot validate itself"), after Gary W. Floyd's GEP
 (Guided Entropy Principle), Lumiea Systems / ThunderStruck Service LLC.

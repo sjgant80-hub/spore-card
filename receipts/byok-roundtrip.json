@@ -1,0 +1,96 @@
+{
+  "held": true,
+  "job": {
+    "requester": "5526f742941711b3bc530ba44ff6f6dab0f0ab71af832f41a7fe3b9fdaed9c60",
+    "spore": "◊ spore.v1 funnel 11 g:12.2.10",
+    "worker": "d404bc44565aedbb899150e5b0b3b32b9441bf0cb7884c33130da8dbc27dd2cf"
+  },
+  "kind": "spore-card-byok-roundtrip",
+  "modelFree": {
+    "grow": {
+      "champion": "◊ spore.v1 funnel 11 f:579fc3f04c233901",
+      "championConfirmFitness": 0.941045,
+      "evals": 104,
+      "heldAuc": 0.820498,
+      "proposalWon": false,
+      "proposed": 0,
+      "selectionFitness": 0.938966,
+      "skipped": 0,
+      "stemConfirmFitness": 0.918899
+    },
+    "requester": {
+      "accept": true,
+      "card": "7229a03e866a1089374cc06378102d6251b33e9eb16fe086edbc55d8d86f41fc",
+      "case": "model-free",
+      "cites": "ec92e6faaae0d08f3871bb7baf50a216ec45578588ae027af903faa9a7243939",
+      "claimed": "0.820498",
+      "data": "held",
+      "inputs": "ce45cd9e7be4638adee4f2f2f7de36b8451665a4d48386270e8e7f66e562e106",
+      "kind": "spore-card-edge-verify",
+      "outputs": "e16d3f8f660679047b82bf3a2cfe01100400585e3f05191cd637dbb57bcaf351",
+      "reason": "reproduced 0.820498 here — the signature proves who, the re-run proved what",
+      "reproduced": "0.820498",
+      "seal": "verified",
+      "signer": "d404bc44565aedbb899150e5b0b3b32b9441bf0cb7884c33130da8dbc27dd2cf",
+      "stage": "accepted",
+      "v": 1
+    }
+  },
+  "modelFreePasses": true,
+  "proposer": {
+    "dropped": 0,
+    "genomes": [
+      {
+        "bins": 4,
+        "book": 4,
+        "features": 2097151,
+        "halfLife": 4,
+        "minLift": 1,
+        "minSupport": 1,
+        "on": 127,
+        "ownMin": 4,
+        "pairK": 3,
+        "proofZ": 3,
+        "smooth": 3,
+        "wiring": 0
+      }
+    ],
+    "model": "llama3.2:1b",
+    "offered": 1,
+    "promptSha256": "81a83653f489cf8d6a88ffc671ea16ab036e6563a426c586f769c143dcc67a1b",
+    "replySha256": "9a78ee4caa5322d69e0a5ea9f81059a7e5bed4438cb5202ec5a84923e6eac7fd"
+  },
+  "rule": "a model may only PROPOSE; each proposal is scored on the grow’s inner split and kept only if it beats the grown champion there; the requester re-runs every answer; without a model the job still passes",
+  "v": 1,
+  "withProposer": {
+    "grow": {
+      "champion": "◊ spore.v1 funnel 11 f:579fc3f04c233901",
+      "championConfirmFitness": 0.941045,
+      "evals": 105,
+      "heldAuc": 0.820498,
+      "proposalWon": false,
+      "proposed": 1,
+      "selectionFitness": 0.938966,
+      "skipped": 0,
+      "stemConfirmFitness": 0.918899
+    },
+    "requester": {
+      "accept": true,
+      "card": "041a6aaf2724a9239b38c68594cc2c31e628a92ddf502613c572ece7b3bd7034",
+      "case": "with-proposer",
+      "cites": "122db1bd7159cf18730c2c447bbb9ddd586fd13dcc4746caa32d3ea22130c682",
+      "claimed": "0.820498",
+      "data": "held",
+      "inputs": "ce45cd9e7be4638adee4f2f2f7de36b8451665a4d48386270e8e7f66e562e106",
+      "kind": "spore-card-edge-verify",
+      "outputs": "e16d3f8f660679047b82bf3a2cfe01100400585e3f05191cd637dbb57bcaf351",
+      "reason": "reproduced 0.820498 here — the signature proves who, the re-run proved what",
+      "reproduced": "0.820498",
+      "seal": "verified",
+      "signer": "d404bc44565aedbb899150e5b0b3b32b9441bf0cb7884c33130da8dbc27dd2cf",
+      "stage": "accepted",
+      "v": 1
+    },
+    "worker": "sealed"
+  }
+}
