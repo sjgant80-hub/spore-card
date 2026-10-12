@@ -8,7 +8,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
       - name: tests (codec, envelope, edge verdict, job, proposer, mesh + job integration, image/survival, chunk)
-        run: node --test spore-card.test.mjs envelope.test.mjs edge.test.mjs job.test.mjs proposer.test.mjs grow-on.test.mjs mesh.test.mjs job-flow.test.mjs spore-card-image.test.mjs
+        run: node --test spore-card.test.mjs envelope.test.mjs edge.test.mjs job.test.mjs proposer.test.mjs grow-on.test.mjs mesh.test.mjs job-flow.test.mjs spore-card-image.test.mjs wire-chunk.test.mjs
       - name: mutation gate (codec + envelope + edge verdict + job + proposer)
         run: node witness-all.mjs
       - name: MESH step 0 — the edge-verify done-test re-runs and must reproduce its receipt byte for byte

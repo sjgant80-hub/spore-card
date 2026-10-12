@@ -110,14 +110,18 @@
 import * as W from './spore-card-wire.mjs';
 
 const $ = (id) => document.getElementById(id);
+// a dropped card is untrusted input: anything it carries is escaped before it touches the page
+const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const card = $('card');
 
-// render the preview card on load
+// render the preview card on load — then grow its seed HERE, so the face carries a number re-run on this device
 W.drawCard(card);
+let measured = null;
+W.germinate().then((g) => { if (g.ok) { measured = { heldAuc: g.heldAuc, held: g.held }; W.drawCard(card, W.SEED, measured); } }).catch(() => {});
 
 $('dl').addEventListener('click', async () => {
   $('dl').disabled = true; $('dl').textContent = 'Rendering…';
-  try { await W.downloadCard(card); $('dl').textContent = 'Downloaded ✓'; }
+  try { await W.downloadCard(card, W.SEED, 'spore-card.png', measured); $('dl').textContent = 'Downloaded ✓'; }
   catch (e) { $('dl').textContent = 'Download failed'; }
   setTimeout(() => { $('dl').disabled = false; $('dl').textContent = 'Download the card (PNG)'; }, 1600);
 });
@@ -129,11 +133,11 @@ async function handleFile(file) {
   read.innerHTML = 'Reading the picture…'; grown.innerHTML = ''; $('grow').disabled = true; pendingSeed = null;
   try {
     const r = await W.decodeFile(file);
-    if (!r.ok) { read.innerHTML = '<span class="bad">Couldn\'t read a seed: ' + r.error + '</span>'; return; }
+    if (!r.ok) { read.innerHTML = '<span class="bad">Couldn\'t read a seed: ' + esc(r.error) + '</span>'; return; }
     pendingSeed = r.seed;
-    read.innerHTML = '<span class="ok">Seed read (' + r.via + ')</span><div class="mono">' + r.seed + '</div>';
+    read.innerHTML = '<span class="ok">Seed read (' + esc(r.via) + ')</span><div class="mono">' + esc(r.seed) + '</div>';
     $('grow').disabled = false;
-  } catch (e) { read.innerHTML = '<span class="bad">' + (e.message || 'read error') + '</span>'; }
+  } catch (e) { read.innerHTML = '<span class="bad">' + esc(e.message || 'read error') + '</span>'; }
 }
 
 $('grow').addEventListener('click', async () => {
@@ -141,7 +145,7 @@ $('grow').addEventListener('click', async () => {
   $('grow').disabled = true; grown.innerHTML = 'Growing on your machine…';
   try {
     const g = await W.germinate(pendingSeed);
-    if (!g.ok) { grown.innerHTML = '<span class="bad">' + (g.error || 'grow failed') + '</span>'; return; }
+    if (!g.ok) { grown.innerHTML = '<span class="bad">' + esc(g.error || 'grow failed') + '</span>'; return; }
     const auc = g.heldAuc.toFixed(6);
     grown.innerHTML =
       '<span class="ok">Grown ✓</span> — held-out AUC <b>' + auc + '</b> on ' + g.held +
@@ -158,7 +162,7 @@ $('grow').addEventListener('click', async () => {
       W.triggerDownload(new Blob([JSON.stringify(body, null, 2)], { type: 'application/json' }), 'your-didy.json');
       W.triggerDownload(new Blob([JSON.stringify(receipt, null, 2)], { type: 'application/json' }), 'receipt.json');
     });
-  } catch (e) { grown.innerHTML = '<span class="bad">' + (e.message || 'grow error') + '</span>'; }
+  } catch (e) { grown.innerHTML = '<span class="bad">' + esc(e.message || 'grow error') + '</span>'; }
 });
 
 // drop + browse wiring

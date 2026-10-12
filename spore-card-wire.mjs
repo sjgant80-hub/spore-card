@@ -6,6 +6,9 @@
 import * as K from './spore-card.mjs';
 import { parseSessions } from './organ.mjs';
 import { germinate as sporeGerminate, ratioOf } from './spore.mjs';
+import { parseChunks, serialise } from './vendor/fallkard-forge/card.mjs';
+
+const SPORE_CHUNK = 'spoR';   // ancillary (lowercase 1st letter), private (lowercase 3rd): the exact frame, losslessly
 
 export const SEED = K.CARD_SEED;
 // the sealed, reproduced fall-spore figures this card carries (commit 4c3ab7b)
@@ -21,7 +24,8 @@ const S = BAND_MODULES * P;                 // 516px band square
 const CAPTION_H = 150;
 
 // ── draw the card: a square data-band on top, a human proof-face caption below ──────────────────────
-export function drawCard(canvas, seedStr = SEED) {
+// The face prints only a number re-run on THIS device (`measured`, from germinate() here) — never a typed one.
+export function drawCard(canvas, seedStr = SEED, measured = null) {
   const frameBytes = K.cardFrameFor(seedStr);
   const enc = K.encodeMatrix(frameBytes);
   const w = S, h = S + CAPTION_H;
@@ -45,8 +49,11 @@ export function drawCard(canvas, seedStr = SEED) {
   ctx.fillText('A seed you can grow', 24, S + 42);
   ctx.fillStyle = '#d7d7de'; ctx.font = '15px -apple-system, Segoe UI, sans-serif';
   ctx.fillText('Save this picture. Drop it into the grower — it grows a working', 24, S + 74);
-  ctx.fillText('model on your machine, offline. Held-out AUC 0.820 on 4,725', 24, S + 96);
-  ctx.fillText('sessions it never grew on. Re-run it yourself.', 24, S + 118);
+  const ok = measured && Number.isFinite(measured.heldAuc) && Number.isInteger(measured.held);
+  ctx.fillText(ok ? 'model on your machine, offline. Re-run here: held-out AUC ' + measured.heldAuc.toFixed(6)
+    : 'model on your machine, offline, and re-runs its held-out score', 24, S + 96);
+  ctx.fillText(ok ? 'on ' + measured.held.toLocaleString('en-GB') + ' sessions it never grew on. Re-run it yourself.'
+    : 'on sessions it never grew on. Re-run it yourself.', 24, S + 118);
   ctx.fillStyle = '#8a8a93'; ctx.font = '12px -apple-system, Segoe UI, sans-serif';
   ctx.fillText('Powered by the Konomi architecture, created by Thomas Frumkin.', 24, S + 140);
   return { frameBytes, w, h };
@@ -58,23 +65,40 @@ export function canvasToPngBytes(canvas) {
     canvas.toBlob((blob) => blob.arrayBuffer().then((ab) => resolve(new Uint8Array(ab))), 'image/png');
   });
 }
-export async function downloadCard(canvas, seedStr = SEED, filename = 'spore-card.png') {
-  const { frameBytes } = drawCard(canvas, seedStr);
-  const png = await canvasToPngBytes(canvas);
+// The PNG with the card's exact frame in a lossless spoR chunk just before IEND (any earlier spoR replaced). The
+// chunk primitives are fallkard-forge's browser-safe ones (vendor/fallkard-forge/card.mjs), so this runs in a tab.
+export function withSporeChunk(png, frameBytes) {
+  const chunks = parseChunks(png).filter((c) => c.type !== SPORE_CHUNK);
+  chunks.splice(chunks.findIndex((c) => c.type === 'IEND'), 0, { type: SPORE_CHUNK, data: frameBytes });
+  return serialise(chunks);
+}
+/** The frame a spoR chunk carries, or null (no chunk, or not a PNG). */
+export function sporeChunkOf(png) {
+  try { const c = parseChunks(png).find((x) => x.type === SPORE_CHUNK); return c ? c.data : null; } catch { return null; }
+}
+export async function downloadCard(canvas, seedStr = SEED, filename = 'spore-card.png', measured = null) {
+  const { frameBytes } = drawCard(canvas, seedStr, measured);
+  const png = withSporeChunk(await canvasToPngBytes(canvas), frameBytes);
   triggerDownload(new Blob([png], { type: 'image/png' }), filename);
-  return { ok: true, bytes: frameBytes.length };
+  return { ok: true, bytes: frameBytes.length, png };
 }
 
-// ── read a dropped/uploaded card from the visible band (survives download, screenshot, re-encode) ────
+// ── read a dropped/uploaded card: the lossless chunk first, the visible band if a platform stripped it ─
 export async function decodeFile(file) {
+  const raw = new Uint8Array(await file.arrayBuffer());
+  const chunkFrame = sporeChunkOf(raw);
+  if (chunkFrame) {
+    const s = K.seedFromFrame(chunkFrame);
+    if (s.ok) return { ok: true, via: 'lossless chunk', seed: s.seed };
+  }
   const img = await loadImage(file);
   const band = topSquareGray(img);
   const cells = resampleBand(band.px, band.size);
   const dec = K.decodeMatrix(cells);
   if (!dec.ok) return { ok: false, error: 'could not read the seed from the image (' + dec.error + ')' };
-  const uf = K.unframe(dec.frame);
-  if (!uf.ok) return { ok: false, error: 'the seed read back corrupt (' + uf.error + ')' };
-  return { ok: true, via: 'visible band', seed: K.bytesToStr(uf.seed) };
+  const uf = K.seedFromFrame(dec.frame);
+  if (!uf.ok) return { ok: false, error: 'the seed read back corrupt or is not a bare seed (' + uf.error + ')' };
+  return { ok: true, via: 'visible band', seed: uf.seed };
 }
 
 function loadImage(file) {

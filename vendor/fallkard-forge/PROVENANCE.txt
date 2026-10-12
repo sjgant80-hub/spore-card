@@ -1,1 +1,2 @@
-png.mjs vendored from sjgant80-hub/fallkard-forge (MIT), the PNG chunk primitives.
+png.mjs vendored from sjgant80-hub/fallkard-forge (MIT), the PNG chunk primitives (Node: Buffer) — at the repo root.
+card.mjs vendored byte-identical from sjgant80-hub/fallkard-forge @ 6930c80 (MIT): the browser-safe PNG chunk primitives (parseChunks, makeChunk, serialise, crc32). spore-card uses them to write and read its lossless spoR chunk in the browser. Gated in its own repo (witness v0.2); wire-chunk.test.mjs pins its sha256.
