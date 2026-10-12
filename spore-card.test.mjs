@@ -4,9 +4,58 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  V1, CARD_SEED, strToBytes, bytesToStr, crc16, frame, unframe,
+  V1, V2, CARD_SEED, strToBytes, bytesToStr, crc16, frame, unframe,
   isFinder, dataCells, encodeMatrix, decodeMatrix, cardFrameFor, seedFromFrame,
 } from './spore-card.mjs';
+
+// ── v2: the versioned frame and the bigger grid a signed envelope needs ─────────────────────────────
+test('V2 is the 63-module, version-2 shape with the same module size as V1', () => {
+  assert.equal(V2.MODULES, 63);
+  assert.equal(V2.VER, 2);
+  assert.equal(V2.REPS, 3);
+  assert.equal(V2.CELL_PX, V1.CELL_PX);
+  assert.equal(V2.MAGIC, V1.MAGIC);
+});
+test('frame writes the version it is given; unframe reports it and returns the payload', () => {
+  const p = Uint8Array.from([9, 8, 7]);
+  const f2 = frame(p, 2);
+  assert.equal(f2[1], 2);
+  const u2 = unframe(f2);
+  assert.ok(u2.ok);
+  assert.equal(u2.ver, 2);
+  assert.deepEqual(Array.from(u2.payload), [9, 8, 7]);
+  assert.deepEqual(Array.from(u2.seed), [9, 8, 7]);
+  const u1 = unframe(frame(p));
+  assert.equal(u1.ver, 1, 'the default version is 1');
+});
+test('frame refuses to write an unknown version — it falls back to 1, never writes 9', () => {
+  assert.equal(frame(Uint8Array.from([1]), 9)[1], 1);
+  assert.equal(frame(Uint8Array.from([1]), 0)[1], 1);
+  assert.equal(frame(Uint8Array.from([1]), 3)[1], 1);
+});
+test('unframe refuses versions other than 1 and 2', () => {
+  for (const v of [0, 3, 9, 255]) {
+    const f = frame(Uint8Array.from([1, 2]), 1);
+    f[1] = v;
+    assert.equal(unframe(f).ok, false, 'version ' + v + ' must be refused');
+  }
+});
+test('seedFromFrame reads only v1 — a v2 payload is an envelope, not a string', () => {
+  const r = seedFromFrame(frame(strToBytes('hello'), 2));
+  assert.equal(r.ok, false);
+  assert.match(r.error, /signed card/);
+  assert.equal(seedFromFrame(frame(strToBytes('hello'), 1)).seed, 'hello');
+});
+test('a ~150-byte signed envelope fits the V2 grid and round-trips; it does not fit V1', () => {
+  const env = Uint8Array.from({ length: 147 }, (_, i) => (i * 37 + 11) & 0xff);
+  const fr = frame(env, 2);
+  const enc = encodeMatrix(fr, V2.MODULES, V2.REPS);
+  assert.ok(enc.ok);
+  const dec = decodeMatrix(enc.cells, V2.MODULES, V2.REPS);
+  assert.ok(dec.ok);
+  assert.deepEqual(Array.from(dec.frame), Array.from(fr));
+  assert.equal(encodeMatrix(fr, V1.MODULES, V1.REPS).ok, false, 'the v1 grid is too small for a signature');
+});
 
 // ── UTF-8 encode, pinned at every width boundary (kills < vs <= on 0x80/0x800/0x10000) ──────────────
 test('strToBytes encodes each codepoint-width boundary at the exact byte length and value', () => {

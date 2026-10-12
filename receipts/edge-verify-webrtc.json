@@ -1,0 +1,24 @@
+{
+  "kind": "spore-card-edge-verify-live-run",
+  "v": 1,
+  "date": "2026-10-12",
+  "what": "MESH_PLAN step 0 / §2b, run live: node A sends three signed cards to node B over a real WebRTC DataChannel; B judges each one itself.",
+  "honest_scope": "Two independent browser nodes on ONE machine (different origins, so separate storage and separate Ed25519 keys). A recorded observation, not a regenerable receipt: browser keys are random. The byte-reproducible receipt is receipts/edge-verify.json (CI re-runs it). The two-DEVICE run waits on a second device.",
+  "topology": {
+    "nodeA": { "origin": "http://localhost:8150", "key": "8f2f6fd8743b6ce9…", "grew": "0.820498 (in the browser, on its own copy of the data)" },
+    "nodeB": { "origin": "http://127.0.0.1:8150", "key": "c620b29ca5d88ce7…" },
+    "data": "both nodes hold data/online_shoppers_intention.csv (sha256 b3055ee355f5…)",
+    "link": "RTCPeerConnection DataChannel, invite + reply pasted by hand (fall-os webrtc.mjs, fall-federate invite check)",
+    "stun": "none — the STUN box was unticked; no third party at all",
+    "pairing": "B replied, then A connected 25 s later; B received the cards 62 s after replying (the 20 s guest timeout that lost every card in the first run is fixed: the listener is attached when the link is created)"
+  },
+  "network": "node A requested only http://localhost:8150 (page, modules, its data); node B only http://127.0.0.1:8150 plus blob: URLs (decoding the received pictures locally). Zero requests left the machine.",
+  "transport": "each card travelled as a PNG picture in 6 chunks; B reassembled it, checked its sha256 against the sender's, then read the signed envelope off the pixels",
+  "cases": [
+    { "case": "genuine", "arrived_intact": true, "sha256_prefix": "f91e86df044772b2", "seal": "verified", "reproduced": "0.820498", "accept": true, "stage": "accepted", "reason": "reproduced 0.820498 here — the signature proves who, the re-run proved what" },
+    { "case": "tampered", "arrived_intact": true, "sha256_prefix": "2fb71b9f7e0f0b90", "seal": "mismatch", "reproduced": null, "accept": false, "stage": "seal", "reason": "seal mismatch — the Ed25519 signature does not cover these bytes" },
+    { "case": "false-claim", "arrived_intact": true, "sha256_prefix": "14d98362fc21b42a", "seal": "verified", "reproduced": "0.820498", "accept": false, "stage": "rerun", "reason": "the claim does not reproduce — the card says 0.900000, the re-run here gives 0.820498" }
+  ],
+  "held": true,
+  "rule": "a signature proves who; only a re-run on the receiving node proves what"
+}

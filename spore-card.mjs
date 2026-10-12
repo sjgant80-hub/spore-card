@@ -18,8 +18,12 @@
 // Germination is fall-spore (vendored, credited). Powered by the Konomi architecture, created by Thomas Frumkin.
 // ════════════════════════════════════════════════════════════════
 
-// ── v1 geometry (one card shape; the reader knows it) ───────────────────────────────────────────────
+// ── geometry: the reader knows each version's shape ─────────────────────────────────────────────────
+// v1 carries a bare seed. v2 carries a SIGNED envelope (seed + claim + Ed25519 key + signature, envelope.mjs),
+// which needs ~150 bytes, so its grid is 63×63: the same module size, so the same downscale survival.
 export const V1 = Object.freeze({ MODULES: 37, REPS: 3, CELL_PX: 12, QUIET: 4, MAGIC: 0x53, VER: 1 });
+export const V2 = Object.freeze({ MODULES: 63, REPS: 3, CELL_PX: 12, QUIET: 4, MAGIC: 0x53, VER: 2 });
+const VERSIONS = [V1.VER, V2.VER];
 // the sealed, reproduced funnel seed this card version carries (fall-spore, commit 4c3ab7b, held-out AUC 0.820498)
 export const CARD_SEED = '◊ spore.v1 funnel 11 f:579fc3f04c233901';
 
@@ -66,13 +70,15 @@ export function crc16(bytes, start, end) {
   return crc & 0xffff;
 }
 
-// ── frame: [MAGIC, VER, LEN_hi, LEN_lo, ...seed, CRC_hi, CRC_lo]; CRC over everything before the CRC ──
-export function frame(seedBytes) {
-  const seed = seedBytes || [];
+// ── frame: [MAGIC, VER, LEN_hi, LEN_lo, ...payload, CRC_hi, CRC_lo]; CRC over everything before the CRC ──
+// VER says what the payload is: 1 = a bare seed string, 2 = a signed envelope. Any other version is refused.
+export function frame(payloadBytes, ver = V1.VER) {
+  const seed = payloadBytes || [];
   const sn = seed.length | 0;
   const len = sn & 0xffff;
+  const v = VERSIONS.includes(ver) ? ver : V1.VER;
   const out = new Uint8Array(4 + len + 2);
-  out[0] = V1.MAGIC; out[1] = V1.VER; out[2] = (len >> 8) & 0xff; out[3] = len & 0xff;
+  out[0] = V1.MAGIC; out[1] = v; out[2] = (len >> 8) & 0xff; out[3] = len & 0xff;
   out.set(Uint8Array.from({ length: len }, (_, i) => seed[i] & 0xff), 4);
   const c = crc16(out, 0, 4 + len);
   out[4 + len] = (c >> 8) & 0xff; out[4 + len + 1] = c & 0xff;
@@ -83,14 +89,15 @@ export function unframe(bytes) {
   const n = b.length | 0;
   if (n < 6) return { ok: false, error: 'frame too short' };
   if ((b[0] & 0xff) !== V1.MAGIC) return { ok: false, error: 'bad magic' };
-  if ((b[1] & 0xff) !== V1.VER) return { ok: false, error: 'unsupported version' };
+  const ver = b[1] & 0xff;
+  if (!VERSIONS.includes(ver)) return { ok: false, error: 'unsupported version' };
   const len = ((b[2] & 0xff) << 8) | (b[3] & 0xff);
   if (4 + len + 2 > n) return { ok: false, error: 'declared length overruns frame' };
   const want = ((b[4 + len] & 0xff) << 8) | (b[4 + len + 1] & 0xff);
   const got = crc16(b, 0, 4 + len);
   if (want !== got) return { ok: false, error: 'crc mismatch' };
   const seed = Uint8Array.from({ length: len }, (_, i) => b[4 + i] & 0xff);
-  return { ok: true, seed };
+  return { ok: true, ver, seed, payload: seed };
 }
 
 // ── module grid ─────────────────────────────────────────────────────────────────────────────────────
@@ -169,5 +176,6 @@ export function cardFrameFor(seedStr = CARD_SEED) {
 export function seedFromFrame(frameBytes) {
   const uf = unframe(frameBytes);
   if (!uf.ok) return uf;
+  if (uf.ver !== V1.VER) return { ok: false, error: 'a signed card — its payload is an envelope, read it with envelope.mjs' };
   return { ok: true, seed: bytesToStr(uf.seed) };
 }

@@ -1,0 +1,1 @@
+webrtc.mjs vendored from sjgant80-hub/fall-os @ fa75756 (MIT): the hand-pasted-invite WebRTC link — no signalling server, STUN named, refuses rather than relays.

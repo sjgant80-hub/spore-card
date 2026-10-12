@@ -21,7 +21,14 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-export const PAIRS = [['spore-card.mjs', 'spore-card.test.mjs']];
+export const PAIRS = [
+  ['spore-card.mjs', 'spore-card.test.mjs'],   // the bit codec (v1 bare seed, v2 signed envelope)
+  ['envelope.mjs', 'envelope.test.mjs'],       // the signed envelope's layout
+  ['edge.mjs', 'edge.test.mjs'],               // the edge verdict: parse → seal → data → re-run
+];
+// Not gated here, with the reason: mesh.mjs and node-tools.mjs are orchestration and I/O (crypto, hashing,
+// germination handed in) — mesh.test.mjs runs them end to end with real Ed25519 on the real dataset, and
+// tools/edge-receipt.mjs --check re-runs the whole done-test and demands a byte-identical receipt.
 
 const only = process.argv.slice(2);
 let allClean = true;

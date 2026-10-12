@@ -10,7 +10,12 @@
 - Germinate the seed `◊ spore.v1 funnel 11 f:579fc3f04c233901` — it reproduces held-out AUC 0.820498, the figure fall-spore sealed in commit 4c3ab7b.
 - Run the mutation gate: `npm run witness` (exit 0 only if the card codec is clean).
 
+## The mesh
+- A signed (v2) card binds seed + claimed score + data tag + Ed25519 key. A receiving node checks the seal, then that it holds the data, then RE-RUNS the seed: the score must reproduce or the card is refused, however well signed.
+- receipts/edge-verify.json re-runs byte-for-byte in CI (node tools/edge-receipt.mjs --check).
+
 ## Links
+- Mesh: https://sjgant80-hub.github.io/spore-card/mesh.html
 - Live: https://sjgant80-hub.github.io/spore-card/
 - Seed + grower: https://sjgant80-hub.github.io/fall-spore/
 

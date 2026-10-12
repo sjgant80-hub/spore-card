@@ -1,0 +1,139 @@
+{
+  "cases": [
+    {
+      "accept": true,
+      "card": "af08daef22824ad7d80069695aa9df9d3141dca6acb9ed72c790a828e0d34b5c",
+      "case": "genuine",
+      "claimed": "0.820498",
+      "data": "held",
+      "expected": {
+        "accept": true,
+        "stage": "accepted"
+      },
+      "inputs": "ce45cd9e7be4638adee4f2f2f7de36b8451665a4d48386270e8e7f66e562e106",
+      "kind": "spore-card-edge-verify",
+      "outputs": "e16d3f8f660679047b82bf3a2cfe01100400585e3f05191cd637dbb57bcaf351",
+      "reason": "reproduced 0.820498 here — the signature proves who, the re-run proved what",
+      "reproduced": "0.820498",
+      "seal": "verified",
+      "signer": "bc7cbcb5636375fa1d82434d466724d92377f53b980695dd49d26d0ce12205a5",
+      "stage": "accepted",
+      "v": 1
+    },
+    {
+      "accept": false,
+      "card": "b619537bc979afca57f0f2689c1926a7f584ad5a2983d77cdd04fe98da19d536",
+      "case": "tampered",
+      "claimed": "0.820498",
+      "data": "unchecked",
+      "expected": {
+        "accept": false,
+        "stage": "seal"
+      },
+      "inputs": null,
+      "kind": "spore-card-edge-verify",
+      "outputs": null,
+      "reason": "seal mismatch — the Ed25519 signature does not cover these bytes",
+      "reproduced": null,
+      "seal": "mismatch",
+      "signer": "bc7cbcb5636375fa1d82434d466724d92377f53b980695dd49d26d0ce12205a5",
+      "stage": "seal",
+      "v": 1
+    },
+    {
+      "accept": false,
+      "card": "f41f26c022687f06c383f9c7d8955ade32ade3c9701cd68952973aaba4183fef",
+      "case": "false-claim",
+      "claimed": "0.900000",
+      "data": "held",
+      "expected": {
+        "accept": false,
+        "stage": "rerun"
+      },
+      "inputs": "ce45cd9e7be4638adee4f2f2f7de36b8451665a4d48386270e8e7f66e562e106",
+      "kind": "spore-card-edge-verify",
+      "outputs": "e16d3f8f660679047b82bf3a2cfe01100400585e3f05191cd637dbb57bcaf351",
+      "reason": "the claim does not reproduce — the card says 0.900000, the re-run here gives 0.820498",
+      "reproduced": "0.820498",
+      "seal": "verified",
+      "signer": "bc7cbcb5636375fa1d82434d466724d92377f53b980695dd49d26d0ce12205a5",
+      "stage": "rerun",
+      "v": 1
+    },
+    {
+      "accept": false,
+      "card": "af08daef22824ad7d80069695aa9df9d3141dca6acb9ed72c790a828e0d34b5c",
+      "case": "other-data",
+      "claimed": "0.820498",
+      "data": "not held",
+      "expected": {
+        "accept": false,
+        "stage": "data"
+      },
+      "inputs": null,
+      "kind": "spore-card-edge-verify",
+      "outputs": null,
+      "reason": "cannot re-run — this node does not hold the data the claim was measured on",
+      "reproduced": null,
+      "seal": "verified",
+      "signer": "bc7cbcb5636375fa1d82434d466724d92377f53b980695dd49d26d0ce12205a5",
+      "stage": "data",
+      "v": 1
+    },
+    {
+      "accept": false,
+      "card": "da29bd63e3a80180e4c05846900083acbc19baa8ac9c2de463345636d9e62491",
+      "case": "unsigned-v1",
+      "claimed": null,
+      "data": "unchecked",
+      "expected": {
+        "accept": false,
+        "stage": "parse"
+      },
+      "inputs": null,
+      "kind": "spore-card-edge-verify",
+      "outputs": null,
+      "reason": "not a signed spore card — not a signed spore envelope",
+      "reproduced": null,
+      "seal": "unread",
+      "signer": null,
+      "stage": "parse",
+      "v": 1
+    },
+    {
+      "accept": true,
+      "card": "af08daef22824ad7d80069695aa9df9d3141dca6acb9ed72c790a828e0d34b5c",
+      "case": "screenshot",
+      "claimed": "0.820498",
+      "data": "held",
+      "expected": {
+        "accept": true,
+        "stage": "accepted"
+      },
+      "inputs": "ce45cd9e7be4638adee4f2f2f7de36b8451665a4d48386270e8e7f66e562e106",
+      "kind": "spore-card-edge-verify",
+      "outputs": "e16d3f8f660679047b82bf3a2cfe01100400585e3f05191cd637dbb57bcaf351",
+      "reason": "reproduced 0.820498 here — the signature proves who, the re-run proved what",
+      "reproduced": "0.820498",
+      "seal": "verified",
+      "signer": "bc7cbcb5636375fa1d82434d466724d92377f53b980695dd49d26d0ce12205a5",
+      "stage": "accepted",
+      "v": 1
+    }
+  ],
+  "data": {
+    "file": "data/online_shoppers_intention.csv",
+    "sha256": "b3055ee355f59134d851d32641183cb4a8b45def7124d2f50442a042f358e0d9"
+  },
+  "held": true,
+  "kind": "spore-card-edge-verify-run",
+  "nodes": {
+    "A": "bc7cbcb5636375fa1d82434d466724d92377f53b980695dd49d26d0ce12205a5",
+    "B": "55154f42065ea5a1bea05463826be2684eb92df92c100027aabaae57ca554207"
+  },
+  "rule": "a signature proves who; only a re-run on the receiving node proves what (MESH_PLAN 2b)",
+  "seed": "◊ spore.v1 funnel 11 f:579fc3f04c233901",
+  "tests": 6,
+  "topology": "two nodes, one process — the two-browser WebRTC run is mesh.html; two devices pending",
+  "v": 1
+}

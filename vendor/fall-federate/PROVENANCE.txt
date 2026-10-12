@@ -1,0 +1,1 @@
+signaling.mjs vendored from sjgant80-hub/fall-federate @ 2221692 (MIT): the witness-gated invite envelope — a malformed or oversized invite is refused before it reaches RTCPeerConnection.

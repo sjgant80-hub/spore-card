@@ -1,6 +1,28 @@
 # Spore Card
 
-**Live:** https://sjgant80-hub.github.io/spore-card/
+**Live:** https://sjgant80-hub.github.io/spore-card/ · **The mesh:** https://sjgant80-hub.github.io/spore-card/mesh.html
+
+## The mesh — a node accepts a card only if it reproduces it
+
+A **signed** card (v2) carries the seed, the score it claims, a tag for the data the score was measured on, and the
+forger's Ed25519 key — all under one signature. A receiving machine does not take its word. It checks, in order:
+
+1. **seal** — does the signature cover these exact bytes? (one changed byte → refused)
+2. **data** — does this machine hold the same data? (otherwise it cannot re-run the claim → refused)
+3. **re-run** — it grows the seed itself; the held-out score must come out identical (a perfectly signed card that
+   claims a score it did not earn → refused)
+
+**A signature proves who. Only a re-run proves what.** Proven two ways:
+
+- `receipts/edge-verify.json` — the done-test (genuine accepted; tampered, false-claim, other-data and unsigned
+  refused; and the signed card survives being drawn, downscaled to 40% and read back off the pixels). Deterministic
+  keys, so **CI re-runs it and demands a byte-identical receipt**: `node tools/edge-receipt.mjs --check`.
+- `receipts/edge-verify-webrtc.json` — the same three verdicts, live, between two independent browser nodes over a
+  real WebRTC DataChannel with no server and no STUN; the network log shows zero requests leaving the machine.
+  (Two nodes on one machine; the two-device run is pending a second device.)
+
+Pairing needs no signalling server: one node makes an invite, you send it however you already talk, and paste back
+the one reply. The link is fall-os's; the invite check is fall-federate's (both vendored, credited).
 
 A picture that **is** a seed. Save the card, drop it into the grower, and a working model grows on your own
 machine — offline, owned by you, reproducing a held-out accuracy you can re-run. The post, the proof and the

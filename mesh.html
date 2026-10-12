@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spore Card Mesh</title>
+<meta name="description" content="Two machines, one signed card, no server. A node accepts a card only if it re-runs the seed and reproduces the claim itself — a signature proves who, only a re-run proves what. Powered by the Konomi architecture, created by Thomas Frumkin.">
+<style>
+  :root{ --bg:#0b0b0f; --panel:#14141b; --ink:#ececf1; --dim:#9a9aa6; --line:#262630; --gold:#e9c46a; --em:#2a9d8f; --em2:#3bb3a3; --bad:#e76f51; }
+  @media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){ --bg:#0b0b0f; } }
+  *{box-sizing:border-box}
+  html{overflow-x:clip}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow-wrap:anywhere}
+  a{color:var(--em2)}
+  .wrap{max-width:900px;margin:0 auto;padding:36px 16px 80px}
+  .kick{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold)}
+  h1{font:700 clamp(30px,6vw,46px)/1.1 Georgia,serif;margin:.3em 0 .25em}
+  .grad{background:linear-gradient(100deg,var(--gold),var(--em2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lede{color:var(--dim);font-size:clamp(16px,2.4vw,19px);max-width:64ch}
+  h2{font:700 21px/1.25 Georgia,serif;margin:0 0 6px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;margin:18px 0}
+  .panel p{color:var(--dim);font-size:14px;margin:0 0 12px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .btn{border:0;border-radius:10px;padding:11px 16px;font:600 15px/1 inherit;cursor:pointer;color:#0b0b0f;background:linear-gradient(100deg,var(--gold),var(--em2))}
+  .btn.ghost{background:transparent;color:var(--em2);border:1px solid var(--em)}
+  .btn.warn{background:transparent;color:var(--bad);border:1px solid var(--bad)}
+  .btn:disabled{opacity:.45;cursor:default}
+  textarea{width:100%;min-height:84px;background:#0e0e14;color:#cfd3dc;border:1px solid var(--line);border-radius:10px;padding:10px;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;resize:vertical}
+  canvas{max-width:100%;height:auto;border-radius:12px;display:block;margin:12px 0;background:#fff}
+  .mono{font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;color:#cfd3dc}
+  .status{font-size:14px;color:var(--dim);margin-top:8px}
+  .ok{color:var(--em2)} .no{color:var(--bad)}
+  .card-in{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:10px 0;background:#101017}
+  .chip{display:inline-block;font:700 12px/1 inherit;letter-spacing:.08em;padding:5px 9px;border-radius:999px;margin-right:8px}
+  .chip.a{background:rgba(59,179,163,.15);color:var(--em2);border:1px solid var(--em)}
+  .chip.r{background:rgba(231,111,81,.12);color:var(--bad);border:1px solid var(--bad)}
+  .drop{border:2px dashed var(--line);border-radius:12px;padding:22px;text-align:center;color:var(--dim)}
+  .drop.hot{border-color:var(--em);background:#101820}
+  label.chk{font-size:14px;color:var(--dim);display:flex;gap:8px;align-items:flex-start}
+  .steps{color:var(--dim);font-size:14px;margin:6px 0 0;padding-left:18px}
+  footer{color:var(--dim);font-size:13px;border-top:1px solid var(--line);margin-top:40px;padding-top:16px}
+  @media (max-width:520px){ .btn{width:100%} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kick">◊ Spore Card · Mesh</div>
+  <h1>Two machines. One card. <span class="grad">No server.</span></h1>
+  <p class="lede">A signed card says who made it and what its seed earns. The machine that receives it does not take its word —
+  it grows the seed itself and only accepts the card if the score comes out the same. <b>A signature proves who. Only a re-run proves what.</b></p>
+
+  <div class="panel">
+    <h2>Your node</h2>
+    <div class="mono" id="me">starting…</div>
+  </div>
+
+  <div class="panel">
+    <h2>1 · Make a signed card</h2>
+    <p>Your machine grows the seed on its own copy of the data, then signs only the score it actually got.</p>
+    <div class="row"><button class="btn" id="make" disabled>Grow and sign a card</button>
+      <button class="btn ghost" id="dl" disabled>Download the card (PNG)</button></div>
+    <div class="status" id="makeStatus"></div>
+    <canvas id="card" width="828" height="998" hidden aria-label="your signed card"></canvas>
+  </div>
+
+  <div class="panel">
+    <h2>2 · Connect to another node</h2>
+    <p>No signalling server: one of you makes an invite, sends it however you already talk, and pastes back the one reply.</p>
+    <label class="chk"><input type="checkbox" id="stun" checked> <span>Use a STUN server so this works across different networks. It sees your IP address and nothing else — no card, no data. Untick it to use no third party at all (same network or same machine only).</span></label>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" id="host" disabled>Start — make an invite</button>
+      <button class="btn ghost" id="join" disabled>Join — I have an invite</button>
+    </div>
+    <div id="hostBox" hidden>
+      <p style="margin-top:12px">Send this invite to the other machine:</p>
+      <textarea id="inviteOut" readonly></textarea>
+      <p>Paste their reply here, then connect:</p>
+      <textarea id="replyIn" placeholder="their reply"></textarea>
+      <button class="btn" id="finish">Connect</button>
+    </div>
+    <div id="joinBox" hidden>
+      <p style="margin-top:12px">Paste the invite you were sent:</p>
+      <textarea id="inviteIn" placeholder="their invite"></textarea>
+      <button class="btn" id="accept">Make my reply</button>
+      <p style="margin-top:12px">Send this reply back:</p>
+      <textarea id="replyOut" readonly></textarea>
+    </div>
+    <div class="status" id="linkStatus">not connected</div>
+  </div>
+
+  <div class="panel">
+    <h2>3 · Send a card</h2>
+    <p>Send yours — and, to see the refusals for yourself, a copy with one byte changed, or a perfectly signed card that claims a score it did not earn.</p>
+    <div class="row">
+      <button class="btn" id="sendGenuine" disabled>Send my signed card</button>
+      <button class="btn warn" id="sendTampered" disabled>Send a tampered copy</button>
+      <button class="btn warn" id="sendLie" disabled>Send a false claim</button>
+    </div>
+    <div class="status" id="sendStatus"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Cards this node received</h2>
+    <p>Each one is checked here: the signature, then whether this machine holds the same data, then a re-run of the seed.</p>
+    <div id="inbox"><div class="status">nothing yet</div></div>
+    <div class="drop" id="drop" style="margin-top:10px">Or drop a card picture here — the file is the connection.
+      <input type="file" id="file" accept="image/png" hidden> <a href="#" id="browse">choose a file</a></div>
+  </div>
+
+  <ol class="steps">
+    <li>Tampered card → refused at the seal. Nothing unverified is ever grown.</li>
+    <li>False claim → the signature is genuine, but the re-run here gives a different score, so it is refused.</li>
+    <li>Genuine card → this machine reproduces the score itself, and accepts it. You can download the receipt.</li>
+  </ol>
+
+  <footer>
+    Seed and growth: <a href="https://sjgant80-hub.github.io/fall-spore/">fall-spore</a>. The link: fall-os, the invite check:
+    fall-federate (both vendored, credited). The card codec, the signed envelope and the edge verdict are mutation-gated; the
+    whole check re-runs in CI and must reproduce the committed receipt byte for byte. <a href="./">The unsigned card</a>.
+    <br>Powered by the Konomi architecture, created by Thomas Frumkin.
+  </footer>
+</div>
+
+<script type="module">
+import * as N from './mesh-node.mjs';
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const short = (u8) => N.toHex(u8).slice(0, 12) + '…';
+
+let tools = null, mine = null, link = null;
+const received = [];
+
+async function boot() {
+  try {
+    tools = await N.makeTools();
+    $('me').innerHTML = 'key ' + esc(short(tools.pubkey)) + ' · data ' + esc(tools.dataSha256Hex.slice(0, 12)) + '… (UCI shoppers, ' + 'held on this machine)';
+    $('make').disabled = false; $('host').disabled = false; $('join').disabled = false;
+  } catch (e) { $('me').innerHTML = '<span class="no">' + esc(e.message || e) + ' — this browser may not support Ed25519 (WebCrypto).</span>'; }
+}
+
+async function makeCard() {
+  $('makeStatus').textContent = 'growing the seed on this machine…';
+  const card = await N.makeSignedCard(N.CARD_SEED, tools);
+  if (!card.ok) { $('makeStatus').innerHTML = '<span class="no">' + esc(card.why) + '</span>'; return null; }
+  N.drawSignedCard($('card'), card.cells, { claim: card.heldAuc.toFixed(6), signer: short(tools.pubkey) });
+  $('card').hidden = false;
+  mine = { ...card, png: await N.canvasPng($('card')) };
+  $('makeStatus').innerHTML = '<span class="ok">grown here: held-out AUC ' + card.heldAuc.toFixed(6) + '</span> — signed with your key.';
+  $('dl').disabled = false; refreshSend();
+  return mine;
+}
+$('make').onclick = makeCard;
+$('dl').onclick = () => { if (!mine) return; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([mine.png], { type: 'image/png' })); a.download = 'signed-spore-card.png'; a.click(); };
+
+function refreshSend() {
+  const live = !!(link && link.open);
+  for (const id of ['sendGenuine', 'sendTampered', 'sendLie']) $(id).disabled = !(live && mine);
+}
+// ticked: the default STUN server (crosses networks). unticked: no third party at all.
+const linkOpts = () => ($('stun').checked ? {} : { stun: [] });
+// The reply travels back BY HAND (a message, an email) — that can take minutes, so pairing waits this long.
+const PAIR_WINDOW = 10 * 60 * 1000;
+function onOpen() {
+  $('linkStatus').innerHTML = '<span class="ok">connected — a direct link, no server in the path</span>';
+  refreshSend();
+}
+// Listen from the moment the link exists, not from the moment it opens: a listener attached late misses
+// nothing only if it was never late. (The first two-node run lost every card to exactly this.)
+function newLink() {
+  link = N.makeLink(linkOpts());
+  if (!link.ok) { $('linkStatus').textContent = link.why; return false; }
+  link.on(N.makeAssembler(onCard));
+  return true;
+}
+
+async function host() {
+  if (!newLink()) return null;
+  $('hostBox').hidden = false; $('joinBox').hidden = true;
+  $('linkStatus').textContent = 'making an invite…';
+  const sdp = await link.invite();
+  const inv = N.makeInvite('offer', N.inviteId(tools.pubkey), sdp);
+  if (!inv.ok) { $('linkStatus').textContent = inv.why; return null; }
+  $('inviteOut').value = btoa(JSON.stringify(inv.invite));
+  $('linkStatus').textContent = 'invite ready — waiting for their reply';
+  return $('inviteOut').value;
+}
+async function accept(text) {
+  let obj; try { obj = JSON.parse(atob(String(text).trim())); } catch { $('linkStatus').innerHTML = '<span class="no">that is not an invite</span>'; return null; }
+  const r = N.readInvite(obj);
+  if (!r.ok || r.role !== 'offer') { $('linkStatus').innerHTML = '<span class="no">refused: ' + esc(r.why || 'not an offer') + '</span>'; return null; }
+  if (!newLink()) return null;
+  const ans = await link.accept(r.sdp);
+  const inv = N.makeInvite('answer', N.inviteId(tools.pubkey), ans);
+  $('replyOut').value = btoa(JSON.stringify(inv.invite));
+  $('linkStatus').textContent = 'reply ready — send it back; this page will connect as soon as they paste it';
+  link.ready(PAIR_WINDOW).then(onOpen, (e) => { $('linkStatus').innerHTML = '<span class="no">' + esc(e.message) + '</span>'; });
+  return $('replyOut').value;
+}
+async function finish(text) {
+  let obj; try { obj = JSON.parse(atob(String(text).trim())); } catch { $('linkStatus').innerHTML = '<span class="no">that is not a reply</span>'; return false; }
+  const r = N.readInvite(obj);
+  if (!r.ok || r.role !== 'answer') { $('linkStatus').innerHTML = '<span class="no">refused: ' + esc(r.why || 'not an answer') + '</span>'; return false; }
+  await link.finish(r.sdp);
+  $('linkStatus').textContent = 'connecting…';
+  try { await link.ready(PAIR_WINDOW); onOpen(); return true; } catch (e) { $('linkStatus').innerHTML = '<span class="no">' + esc(e.message) + '</span>'; return false; }
+}
+$('host').onclick = host;
+$('join').onclick = () => { $('joinBox').hidden = false; $('hostBox').hidden = true; };
+$('accept').onclick = () => accept($('inviteIn').value);
+$('finish').onclick = () => finish($('replyIn').value);
+
+async function pngFor(kind) {
+  if (kind === 'genuine') return mine.png;
+  let env;
+  if (kind === 'tampered') { env = mine.envelope.slice(); env[5] ^= 0x01; }
+  else { const lie = await N.sealClaim(N.CARD_SEED, 900000, tools); env = lie.envelope; }
+  const cv = document.createElement('canvas');
+  N.drawSignedCard(cv, N.cellsForEnvelope(env), { claim: kind === 'tampered' ? '(altered)' : '0.900000', signer: short(tools.pubkey) });
+  return N.canvasPng(cv);
+}
+async function send(kind) {
+  const msgs = await N.cardMessages(await pngFor(kind), kind);
+  for (const m of msgs) link.send(m);
+  $('sendStatus').textContent = 'sent: ' + kind + ' (' + msgs.length + ' part' + (msgs.length === 1 ? '' : 's') + ')';
+}
+$('sendGenuine').onclick = () => send('genuine');
+$('sendTampered').onclick = () => send('tampered');
+$('sendLie').onclick = () => send('false-claim');
+
+async function judgePicture(png, label, transit) {
+  const got = await N.envelopeFromPicture(png);
+  const r = got.ok ? await N.verifyAtEdge(got.envelope, tools, label)
+    : { accept: false, stage: 'parse', reason: 'could not read a signed card off this picture — ' + got.why, case: label };
+  const entry = { ...r, transit };
+  received.push(entry);
+  if (received.length === 1) $('inbox').innerHTML = '';
+  const div = document.createElement('div'); div.className = 'card-in';
+  div.innerHTML = '<span class="chip ' + (r.accept ? 'a' : 'r') + '">' + (r.accept ? 'ACCEPTED' : 'REFUSED') + '</span>'
+    + '<b>' + esc(label) + '</b> · stage: ' + esc(r.stage) + '<div class="status">' + esc(r.reason) + '</div>'
+    + (transit ? '<div class="status">' + (transit.intact ? '<span class="ok">arrived intact</span> — the bytes match what was sent (' + esc(transit.sha.slice(0, 12)) + '…)' : '<span class="no">changed in transit</span>') + '</div>' : '')
+    + '<div class="row" style="margin-top:8px"><button class="btn ghost" type="button">Download the receipt</button></div>';
+  div.querySelector('button').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(entry, null, 2)], { type: 'application/json' })); a.download = 'edge-receipt-' + label + '.json'; a.click(); };
+  $('inbox').appendChild(div);
+  return entry;
+}
+const onCard = (c) => judgePicture(c.png, c.label, { intact: c.intact, sha: c.sha, sentSha: c.sentSha });
+
+const drop = $('drop');
+$('browse').onclick = (e) => { e.preventDefault(); $('file').click(); };
+$('file').onchange = async (e) => { const f = e.target.files[0]; if (f) judgePicture(new Uint8Array(await f.arrayBuffer()), f.name, null); };
+['dragenter', 'dragover'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('hot'); }));
+['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('hot'); }));
+drop.addEventListener('drop', async (e) => { const f = e.dataTransfer.files[0]; if (f) judgePicture(new Uint8Array(await f.arrayBuffer()), f.name, null); });
+
+// a handle for the two-node run (tools/ and the receipt) — it does nothing a visitor cannot do by hand
+window.meshNode = { boot, makeCard, host, accept, finish, send, received, get open() { return !!(link && link.open); }, get key() { return tools && N.toHex(tools.pubkey); } };
+boot();
+</script>
+</body>
+</html>
