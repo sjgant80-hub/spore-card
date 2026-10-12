@@ -85,6 +85,30 @@ product are one image: share the card, and anyone who keeps it can grow the thin
   locally on the bundled sessions, reproducing a **held-out AUC of 0.820498** on 4,725 sessions it never
   grew on, then hands you your own model file and a receipt you can re-run.
 
+## Card stages — a card that grows, and a history anyone can re-run
+
+A card can now carry **stages**. Stage 0 is the ungrown starting model. Stage 1 is the champion of a grow that starts
+from stage 0, on the holder's own machine, with a seed number **keyed to the grower's key** and to the exact stage it
+grew from. Each stage is a signed link; the whole chain rides on the card, and whoever holds the card re-checks it:
+
+- **structure, instantly** — every link signed by the key it names, each one chained to the last, the first one
+  chained to the rules it names, each seed the kind this reader re-runs, each seed number one its key may grow;
+- **then the re-runs, per stage** — the stage's held-out score reproduces exactly (it is *measured*, it never
+  decides); on a fresh check split it beats the starting model and **every** stage it grew from; and re-grown here
+  for that key from the stage before, the grow lands on exactly the same model.
+
+So a stage cannot be claimed, copied or bought — only grown. Proven by `receipts/stage-unlock.json` (CI regenerates
+it byte for byte: `node tools/stage-receipt.mjs --check`): a root and a grown stage 1 pass on a third machine; and
+**laundered** (another key re-signs the grown model under its own seed number, with its true score) is refused at the
+re-grow; a stolen seed number at the key; a flipped byte at the signature; a spliced chain at the order; a false score
+at the re-run; an ungrown "stage" at the climb; a wrong band, two histories, ten links — all refused; unknown rules,
+no data or no time give PENDING, never a false refusal. `stages.mjs` (the decisions) is mutation-gated clean with
+nothing baselined; the engine it re-runs is pinned, so a sealed rules id never changes meaning.
+
+What it does not prove: where a stage was grown (only that it was grown for that key, reproducibly); that a stage is
+the best model, or useful beyond this one public task; held-out can fall while stages rise (both are shown). The live
+page to grow and trade staged cards is the next slice.
+
 ## The honest claims (each measured, each re-runnable)
 
 - **The seed germinates offline, reproducing the sealed figure.** The 41-byte seed

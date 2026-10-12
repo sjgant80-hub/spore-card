@@ -8,7 +8,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
       - name: tests (codec, envelope, edge verdict, job, proposer, mesh + job integration, image/survival, chunk)
-        run: node --test spore-card.test.mjs envelope.test.mjs edge.test.mjs job.test.mjs proposer.test.mjs grow-on.test.mjs mesh.test.mjs job-flow.test.mjs spore-card-image.test.mjs wire-chunk.test.mjs
+        run: node --test spore-card.test.mjs envelope.test.mjs edge.test.mjs job.test.mjs proposer.test.mjs grow-on.test.mjs mesh.test.mjs job-flow.test.mjs spore-card-image.test.mjs wire-chunk.test.mjs stages.test.mjs stage-engine.test.mjs
       - name: mutation gate (codec + envelope + edge verdict + job + proposer)
         run: node witness-all.mjs
       - name: MESH step 0 — the edge-verify done-test re-runs and must reproduce its receipt byte for byte
@@ -17,3 +17,5 @@ jobs:
         run: node tools/job-receipt.mjs --check
       - name: MESH step 4 — the with/without-model run re-runs from its recorded suggestions, byte for byte
         run: node tools/byok-receipt.mjs --check
+      - name: Card stages — the grown-stage receipt (re-grows, attacks) re-runs and must reproduce byte for byte
+        run: node tools/stage-receipt.mjs --check

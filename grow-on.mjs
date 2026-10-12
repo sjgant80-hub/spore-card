@@ -17,7 +17,7 @@ import { split, assess, STEM, TRAIN_MONTHS, grow as organGrow, keyOf } from './o
 import { germinate, decodeSpore, encodeSpore, makeSpore, contextRows } from './spore.mjs';
 import { earned } from './job.mjs';
 
-const CONFIRM_SALT = 104729;   // a fixed offset so the confirmation split never equals the selection split
+export const CONFIRM_SALT = 104729;   // a fixed offset so the confirmation split never equals the selection split
 
 /**
  * True only for a genome the card format carries exactly AND a verifier would accept: it goes through the real

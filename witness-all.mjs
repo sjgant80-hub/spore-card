@@ -28,6 +28,7 @@ export const PAIRS = [
   ['job.mjs', 'job.test.mjs'],                 // the signed job and the worker's fail-closed check
   ['proposer.mjs', 'proposer.test.mjs'],       // the untrusted model's suggestions, parsed strictly
   ['grow-on.mjs', 'grow-on.test.mjs'],         // the worker's grow + the keep rule: a proposal must strictly win
+  ['stages.mjs', 'stages.test.mjs'],           // card stages: structure + lineage verdicts, keyed seeds, the climb
 ];
 // Not gated here, with the reason: mesh.mjs and node-tools.mjs are orchestration and I/O (crypto, hashing,
 // germination handed in) — mesh.test.mjs runs them end to end with real Ed25519 on the real dataset, and

@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  ENVELOPE_TYPE, MAX_SEED, TAG_LEN, PUBKEY_LEN, SIG_LEN, CLAIM_LEN, MAX_MICRO,
+  ENVELOPE_TYPE, STAGE_TYPE, MAX_SEED, TAG_LEN, PUBKEY_LEN, SIG_LEN, CLAIM_LEN, MAX_MICRO,
   aucToMicro, sameBytes, packUnsigned, attachSignature, unpack,
 } from './envelope.mjs';
 
@@ -15,6 +15,7 @@ const good = { seed, aucMicro: 820498, dataTag, pubkey };
 
 test('constants', () => {
   assert.equal(ENVELOPE_TYPE, 0x02);
+  assert.equal(STAGE_TYPE, 0x04);
   assert.equal(MAX_SEED, 200);
   assert.equal(TAG_LEN, 4); assert.equal(PUBKEY_LEN, 32); assert.equal(SIG_LEN, 64); assert.equal(CLAIM_LEN, 4);
   assert.equal(MAX_MICRO, 1000000);
@@ -153,8 +154,36 @@ test('an answer is refused if its length does not match its own header', () => {
   // a plain card's bytes relabelled as an answer are 32 bytes short of their header
   const plain = attachSignature(packUnsigned(good).bytes, sig).bytes.slice(); plain[0] = 0x03;
   assert.equal(unpack(plain).ok, false);
+  const t5 = e.slice(); t5[0] = 0x05;
+  assert.equal(unpack(t5).ok, false, 'type 5 is not an envelope');
+  // an answer relabelled 0x04 parses as a stage link (same layout) — but its signed bytes now differ from what was
+  // signed, so the signature (which covers the type byte) is what refuses it
   const t4 = e.slice(); t4[0] = 0x04;
-  assert.equal(unpack(t4).ok, false, 'type 4 is not an envelope');
+  const u4 = unpack(t4);
+  assert.deepEqual([u4.ok, u4.type, u4.cites], [true, 0x04, null]);
+  assert.notDeepEqual(Array.from(u4.signedBytes), Array.from(unpack(e).signedBytes));
+});
+
+test('a stage link (0x04) carries prev in the 32-byte slot and round-trips; prev and cites never both', () => {
+  const prev = new Uint8Array(32).map((_, i) => 255 - i);
+  const u = packUnsigned({ ...good, prev });
+  assert.equal(u.ok, true);
+  assert.equal(u.bytes[0], STAGE_TYPE);
+  assert.equal(u.bytes.length, packUnsigned({ ...good, cites }).bytes.length, 'the same size as an answer');
+  const e = attachSignature(u.bytes, sig);
+  assert.equal(e.ok, true, 'a stage link can be signed');
+  const p = unpack(e.bytes);
+  assert.deepEqual([p.ok, p.type, p.cites, p.aucMicro], [true, 0x04, null, good.aucMicro]);
+  assert.deepEqual(Array.from(p.prev), Array.from(prev));
+  assert.deepEqual(Array.from(p.signedBytes), Array.from(u.bytes));
+  assert.equal(unpack(attachSignature(packUnsigned({ ...good, cites }).bytes, sig).bytes).prev, null, 'an answer has no prev');
+  assert.equal(unpack(attachSignature(packUnsigned(good).bytes, sig).bytes).prev, null, 'a plain card has no prev');
+  assert.deepEqual(packUnsigned({ ...good, prev, cites }), { ok: false, why: 'an answer carries cites and a stage link carries prev — never both' });
+  for (const bad of [new Uint8Array(31), new Uint8Array(33), 'x'.repeat(32), null]) {
+    assert.deepEqual(packUnsigned({ ...good, prev: bad }), { ok: false, why: 'the prev of a stage link must be exactly 32 bytes' }, String(bad && bad.length));
+  }
+  const short = e.bytes.slice(0, e.bytes.length - 1);
+  assert.equal(unpack(short).ok, false, 'a stage link one byte short of its header');
 });
 
 test('an answer with the boundary seed lengths 1 and 200 round-trips', () => {
