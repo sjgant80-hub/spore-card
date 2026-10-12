@@ -152,7 +152,8 @@ const claim = N.makeClaims();
 async function boot() {
   try {
     tools = await N.makeTools();
-    $('me').innerHTML = 'key ' + esc(short(tools.pubkey)) + ' (kept ' + esc(tools.keyStored) + ', cannot be copied off this device) · data '
+    $('me').innerHTML = 'key ' + esc(short(tools.pubkey)) + ' (kept ' + esc(tools.keyStored)
+      + (tools.keyCopyable ? ' — <span class="no">this old key is still readable by page script; it could be copied</span>' : '; page script can use it but never read it') + ') · data '
       + esc(tools.dataSha256Hex.slice(0, 12)) + '… (UCI shoppers, held on this machine)';
     $('make').disabled = false; $('host').disabled = false; $('join').disabled = false;
   } catch (e) { $('me').innerHTML = '<span class="no">' + esc(e.message || e) + ' — this browser may not support Ed25519 (WebCrypto).</span>'; }
@@ -285,7 +286,7 @@ $('saveJob').onclick = async () => {
 function onJob(job) {
   if (!$('runJobs').checked) {
     queuedJob = job;
-    $('jobStatus').innerHTML = 'a grow job arrived from the connected machine — tick the box to run it. <button class="btn ghost" type="button" id="runQueued">Run it now</button>';
+    $('jobStatus').innerHTML = 'a grow job arrived from the connected machine — it will not run unless you agree. <button class="btn ghost" type="button" id="runQueued">Run it now</button> (or tick the box to run future jobs automatically)';
     $('runQueued').onclick = () => { const j = queuedJob; queuedJob = null; runHere(j, 'link'); };
     return;
   }

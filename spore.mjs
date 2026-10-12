@@ -124,6 +124,12 @@ export function decodeSpore(str) {
   }
   if (body.startsWith('f:')) {
     const genome = unpackGenome(fromHex(body.slice(2)));
+    // spore-card patch (2026-10-12, found by adversarial review): the bit fields hold more values than the grids have,
+    // so an index past the end of its grid is refused HERE — nothing downstream ever germinates a genome whose
+    // settings are undefined (one such seed made a single re-run take ~125 s instead of ~0.4 s).
+    if (!(genome.wiring < WIRINGS.length) || PARAMS.some((p) => !(genome[p] < GRID[p].length))) {
+      return { ok: false, error: 'a genome setting is past the end of its grid' };
+    }
     return { ok: true, spore: { v: 1, recipe, seed, grow: null, genome } };
   }
   return { ok: false, error: 'spore body must be g: (grow) or f: (fixed genome)' };

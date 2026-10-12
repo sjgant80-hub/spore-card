@@ -9,6 +9,7 @@
 //   false-claim    A validly signs a score it did not earn → B refuses at the RE-RUN (a signature proves who,
 //                                                    not what)
 //   grow-bomb      a self-signed card whose seed is a GROW spore → refused at the SEED: a verifier never grows
+//   out-of-grid    a self-signed FIXED seed whose settings point past their grids → refused at the SEED (it decodes to nothing)
 //   other-data     a node that holds different data → refuses: it cannot re-run the claim
 //   unsigned-v1    a bare v1 seed, no signature     → refused at PARSE
 //   screenshot     the genuine card drawn, downscaled to 40% + 4 grey levels, read back off the picture
@@ -46,6 +47,8 @@ export async function run() {
 
   const lie = await sealClaim(CARD_SEED, 900000, A);       // validly signed, claims 0.900000
   const bomb = await sealClaim('◊ spore.v1 funnel 1 g:64.1.64', 900000, A);   // a self-signed GROW spore
+  // a FIXED seed whose packed settings point past their grids: before the decoder refused it, one re-run took ~125 s
+  const outOfGrid = await sealClaim('◊ spore.v1 funnel 1 f:c6feffff5fda3500', 900000, A);
 
   // the screenshot path: draw the genuine card, degrade it like a re-encode, read it back off the pixels
   const img = renderGray(genuine.cells, V2.MODULES, V2.CELL_PX, V2.QUIET);
@@ -61,6 +64,7 @@ export async function run() {
     { expect: { accept: false, stage: 'seal' }, r: await verifyAtEdge(tampered, B, 'tampered') },
     { expect: { accept: false, stage: 'rerun' }, r: await verifyAtEdge(lie.envelope, B, 'false-claim') },
     { expect: { accept: false, stage: 'seed' }, r: await verifyAtEdge(bomb.envelope, B, 'grow-bomb') },
+    { expect: { accept: false, stage: 'seed' }, r: await verifyAtEdge(outOfGrid.envelope, B, 'out-of-grid') },
     { expect: { accept: false, stage: 'data' }, r: await verifyAtEdge(genuine.envelope, C, 'other-data') },
     { expect: { accept: false, stage: 'parse' }, r: await verifyAtEdge(v1read.ok ? v1read.envelope : strToBytes(CARD_SEED), B, 'unsigned-v1') },
     { expect: { accept: true, stage: 'accepted' }, r: await verifyAtEdge(fromPicture.envelope, B, 'screenshot') },

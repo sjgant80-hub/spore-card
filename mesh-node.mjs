@@ -47,23 +47,26 @@ const signerFor = (priv) => async (bytes) => new Uint8Array(await subtle.sign({ 
 export async function loadIdentity() {
   let db = null;
   try { db = await idb(); const got = await idbGet(db, 'node'); if (got && got.priv && got.pub) return { pubkey: new Uint8Array(got.pub), sign: signerFor(got.priv), stored: 'indexeddb' }; } catch { db = null; }
-  let priv, pubkey;
+  let priv, pubkey, fromOld = false;
   try {
     const old = localStorage.getItem('spore-mesh-identity');
     if (old) {
       const j = JSON.parse(old);
       priv = await subtle.importKey('jwk', j.priv, { name: 'Ed25519' }, false, ['sign']);
       pubkey = unb64(j.pub);
+      fromOld = true;
     }
-  } catch { priv = null; }
+  } catch { priv = null; fromOld = false; }
   if (!priv) {
     const kp = await subtle.generateKey({ name: 'Ed25519' }, false, ['sign', 'verify']);
     priv = kp.privateKey;
     pubkey = new Uint8Array(await subtle.exportKey('raw', kp.publicKey));
   }
-  let stored = 'this session only';
-  if (db) { try { await idbPut(db, 'node', { priv, pub: pubkey }); stored = 'indexeddb'; localStorage.removeItem('spore-mesh-identity'); } catch { /* keep in memory */ } }
-  return { pubkey, sign: signerFor(priv), stored };
+  // An old key that could not be moved still sits, readable, in localStorage — say so, never "cannot be copied".
+  let stored = fromOld ? 'localStorage — the old key, not yet moved, still copyable' : 'this session only';
+  let copyable = fromOld;
+  if (db) { try { await idbPut(db, 'node', { priv, pub: pubkey }); stored = 'indexeddb'; copyable = false; localStorage.removeItem('spore-mesh-identity'); } catch { /* keep as is */ } }
+  return { pubkey, sign: signerFor(priv), stored, copyable };
 }
 
 /** A throwaway key for the demo "false claim": a lie is never signed with the visitor's real identity. */
@@ -87,7 +90,7 @@ export async function makeTools() {
   const id = await loadIdentity();
   const dataSha256Hex = await sha256hex(csv);
   const tools = {
-    pubkey: id.pubkey, sign: id.sign, keyStored: id.stored, verify: webVerify, sha256hex, dataSha256Hex,
+    pubkey: id.pubkey, sign: id.sign, keyStored: id.stored, keyCopyable: id.copyable === true, verify: webVerify, sha256hex, dataSha256Hex,
     germinate(seedStr) {
       const r = sporeGerminate(data, seedStr, 'all');
       if (!r || !r.ok) return { ok: false };

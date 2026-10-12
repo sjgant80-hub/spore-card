@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { parseSessions, STEM, keyOf } from './organ.mjs';
+import { parseSessions, STEM, keyOf, GRID, WIRINGS } from './organ.mjs';
 import { decodeSpore } from './spore.mjs';
 import { growOn, carriable, extraEvals } from './grow-on.mjs';
 import { CARD_SEED } from './spore-card.mjs';
@@ -21,15 +21,26 @@ const SEALED = decodeSpore(CARD_SEED).spore.genome;
 
 const base = growOn(data, TINY);
 
-test('carriable: only a genome the card format carries exactly', () => {
+test('carriable: only a genome the card format carries exactly and a verifier would accept', () => {
   assert.equal(carriable(STEM), true);
   assert.equal(carriable(SEALED), true);
   for (const bad of [null, undefined, 5, 'x', [], true, {}, { ...STEM, bins: 99 }]) assert.equal(carriable(bad), false, String(bad));
+  // the bit fields hold more values than the grids have: an index one past the end packs exactly but is refused
+  assert.equal(carriable({ ...STEM, book: GRID.book.length }), false, 'book index = grid length');
+  assert.equal(carriable({ ...STEM, book: GRID.book.length - 1 }), true, 'the last real book setting');
+  assert.equal(carriable({ ...STEM, wiring: WIRINGS.length }), false, 'wiring index = number of wirings');
 });
 
-test('extraEvals: two confirmation assessments plus one per proposal, never fewer than two', () => {
+test('a fixed seed with a setting past its grid is refused at decoding — nothing germinates it', () => {
+  const hostile = '◊ spore.v1 funnel 1 f:c6feffff5fda3500';     // book 15 of 9, pairK 7 of 7: a ~125 s re-run before
+  assert.deepEqual(decodeSpore(hostile), { ok: false, error: 'a genome setting is past the end of its grid' });
+  assert.equal(decodeSpore(CARD_SEED).ok, true, 'the sealed seed still decodes');
+});
+
+test('extraEvals: two confirmation assessments, one per proposal, and one spare when there are proposals', () => {
   assert.equal(extraEvals(0), 2);
-  assert.equal(extraEvals(3), 5);
+  assert.equal(extraEvals(1), 4);
+  assert.equal(extraEvals(3), 6);
   for (const bad of [-1, 1.5, 'x', null, NaN]) assert.equal(extraEvals(bad), 2, String(bad));
 });
 
@@ -75,6 +86,19 @@ test('a weaker proposal after a better one does not undo it; junk is skipped, no
   assert.equal(r.championSpore, CARD_SEED);
   assert.equal(r.proposedWon, true);
   assert.deepEqual([r.proposed, r.skipped, r.evals], [2, 4, 6]);
+});
+
+test('a proposal that wins selection but fails confirmation is dropped — the model can never take a pass away', () => {
+  // the SMALL grow's champion beats the tiny grow's champion on the shared inner split, then loses to the stem on
+  // confirmation: offered as a proposal, it must not replace the grown champion in the answer
+  const overfit = decodeSpore(growOn(data, SMALL).championSpore).spore.genome;
+  const r = growOn(data, TINY, [overfit]);
+  assert.equal(r.proposedWon, false, 'dropped after failing confirmation');
+  assert.equal(r.championSpore, base.championSpore, 'the answer is exactly the model-free answer');
+  assert.equal(r.championFitness, base.championFitness);
+  assert.equal(r.selectionFitness, base.selectionFitness, 'the champion reported is the grown one, with its own selection score');
+  assert.equal(r.heldAuc, base.heldAuc);
+  assert.deepEqual([r.proposed, r.evals], [1, base.evals + 2], 'one evaluation for the proposal, one to re-judge the grown champion');
 });
 
 test('selection is not proof: a champion can win its own split and lose the confirmation split', () => {

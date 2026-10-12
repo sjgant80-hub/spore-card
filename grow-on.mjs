@@ -14,16 +14,21 @@
 // replaces the champion only if it beats it there. Every evaluation is counted. Powered by the Konomi architecture,
 // created by Thomas Frumkin; the grow is fall-spore / pattern-organs.
 import { split, assess, STEM, TRAIN_MONTHS, grow as organGrow, keyOf } from './organ.mjs';
-import { germinate, decodeSpore, encodeSpore, makeSpore, contextRows, packGenome, unpackGenome } from './spore.mjs';
+import { germinate, decodeSpore, encodeSpore, makeSpore, contextRows } from './spore.mjs';
+import { earned } from './job.mjs';
 
 const CONFIRM_SALT = 104729;   // a fixed offset so the confirmation split never equals the selection split
 
 /**
- * True only for a genome the card format carries exactly (pack/unpack is the identity on it). No separate type guard:
- * a non-genome either fails the round-trip or throws, and the catch is the guard (measured on 5, 'x', [], true, {}).
+ * True only for a genome the card format carries exactly AND a verifier would accept: it goes through the real
+ * spore encoding and decoding (which refuses a setting past the end of its grid) and must come back unchanged. No
+ * separate type guard: a non-genome fails the round-trip or throws, and the catch is the guard.
  */
 export function carriable(g) {
-  try { return keyOf(unpackGenome(packGenome(g))) === keyOf(g); } catch { return false; }
+  try {
+    const d = decodeSpore(encodeSpore(makeSpore({ genome: g })));
+    return d.ok && keyOf(d.spore.genome) === keyOf(g);
+  } catch { return false; }
 }
 
 export function growOn(data, sporeStr, proposals = []) {
@@ -45,9 +50,18 @@ export function growOn(data, sporeStr, proposals = []) {
   }
 
   const confirm = split(data, train, 1 / 3, S.seed + CONFIRM_SALT);
-  const championConfirm = assess(data, confirm, best.g, S.seed, false).fitness;
+  let championConfirm = assess(data, confirm, best.g, S.seed, false).fitness;
   const stemConfirm = assess(data, confirm, STEM, S.seed, false).fitness;
   evals += 2;
+  // A model may only ADD candidates, never take a pass away: a proposal that won selection but does not beat the stem
+  // on confirmation is dropped, and the grown champion — exactly what the model-free grow would judge — is judged
+  // instead (found by the adversarial review: one overfit proposal could veto an earned grow).
+  if (proposedWon && !earned(championConfirm, stemConfirm)) {
+    best = { g: res.champion.g, fitness: res.champion.fitness };
+    championConfirm = assess(data, confirm, best.g, S.seed, false).fitness;
+    evals++;
+    proposedWon = false;
+  }
 
   const championSpore = encodeSpore(makeSpore({ recipe: S.recipe, seed: S.seed, genome: best.g }));
   const held = germinate(data, championSpore, 'all');
@@ -56,5 +70,11 @@ export function growOn(data, sporeStr, proposals = []) {
     heldAuc: held.heldAuc, evals, proposed: scored, skipped, proposedWon };
 }
 
-/** Evaluations a grow costs beyond growCost: the two confirmation assessments plus one per proposal. */
-export const extraEvals = (proposalCount) => 2 + (Number.isInteger(proposalCount) ? Math.max(0, proposalCount) : 0);
+/**
+ * Evaluations a grow costs beyond growCost: the two confirmation assessments, one per proposal, and — when there are
+ * proposals — one more in case a winning proposal fails confirmation and the grown champion is judged instead.
+ */
+export const extraEvals = (proposalCount) => {
+  const n = Number.isInteger(proposalCount) ? Math.max(0, proposalCount) : 0;
+  return 2 + n + Math.min(n, 1);
+};

@@ -86,6 +86,27 @@
     },
     {
       "accept": false,
+      "card": "f5f8ae9cab91c669c5487914967e8f639178e2c97de567346d4005c4e62e1e9e",
+      "case": "out-of-grid",
+      "cites": null,
+      "claimed": "0.900000",
+      "data": "unchecked",
+      "expected": {
+        "accept": false,
+        "stage": "seed"
+      },
+      "inputs": null,
+      "kind": "spore-card-edge-verify",
+      "outputs": null,
+      "reason": "not a seed this node will re-run — the seed does not decode (a genome setting is past the end of its grid)",
+      "reproduced": null,
+      "seal": "verified",
+      "signer": "bc7cbcb5636375fa1d82434d466724d92377f53b980695dd49d26d0ce12205a5",
+      "stage": "seed",
+      "v": 1
+    },
+    {
+      "accept": false,
       "card": "af08daef22824ad7d80069695aa9df9d3141dca6acb9ed72c790a828e0d34b5c",
       "case": "other-data",
       "cites": null,
@@ -160,7 +181,7 @@
   },
   "rule": "a signature proves who; only a re-run on the receiving node proves what (MESH_PLAN 2b)",
   "seed": "◊ spore.v1 funnel 11 f:579fc3f04c233901",
-  "tests": 7,
+  "tests": 8,
   "topology": "two nodes, one process — the two-browser WebRTC run is mesh.html; two devices pending",
   "v": 1
 }

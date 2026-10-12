@@ -91,6 +91,25 @@ test('a junk or unsigned job is refused before anything is claimed', async () =>
   assert.equal(w.mem.size, 0, 'nothing claimed for jobs that were not admissible');
 });
 
+test('a job refused at allowed, data or limits never writes to the replay memory (review finding)', async () => {
+  const job = await newJob();
+  const cases = [
+    ['allowed', workerFor(job, { allow: () => false })],
+    ['data', workerFor(job)],
+    ['limits', workerFor(job, { maxEvals: 50 })],
+  ];
+  for (const [stage, w] of cases) {
+    const tools = stage === 'data' ? { ...fast(), dataSha256Hex: 'ffffffff' + laptop.dataSha256Hex.slice(8) } : fast();
+    const r = await runJob(job, tools, w);
+    assert.equal(r.verdict.stage, stage);
+    assert.equal(w.mem.size, 0, 'a job refused at ' + stage + ' left no claim behind');
+  }
+  // and the same job, from a worker that does accept it, is still claimable — nothing was burned
+  const ok = workerFor(job);
+  assert.equal((await runJob(job, fast(), ok)).ok, true);
+  assert.equal(ok.mem.size, 1);
+});
+
 test('a claim that cannot be recorded means the job does not run', async () => {
   const job = await newJob();
   let grows = 0;
@@ -126,7 +145,7 @@ test('REVIEW · model proposals are capped so every evaluation fits the job’s 
   const many = Array.from({ length: 8 }, () => ({ ...realGrow }));
   const r = await runJob(job, watching, workerFor(job, { proposals: many }));
   assert.equal(r.ok, true);
-  assert.deepEqual(seenProposals, [2], '106 − 102 grown − 2 confirmation leaves room for 2');
+  assert.deepEqual(seenProposals, [1], '106 − 102 grown − 2 confirmation − 1 spare re-judgement leaves room for 1');
 });
 
 test('a champion that only ties the stem earned nothing — nothing is sealed', async () => {

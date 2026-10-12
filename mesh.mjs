@@ -125,7 +125,7 @@ export async function verifyAtEdge(envelope, tools, label = null, job = null) {
  */
 export function reRunnable(seedStr, job = null) {
   const d = decodeSpore(seedStr);
-  if (!d.ok) return { ok: false, why: 'the seed does not decode' };
+  if (!d.ok) return { ok: false, why: 'the seed does not decode (' + d.error + ')' };
   if (d.spore.grow || !d.spore.genome) return { ok: false, why: 'it is a grow spore — a verifier re-runs a fixed genome and never grows' };
   if (job !== null) {
     const g = growSettings(job && job.spore);
@@ -154,10 +154,10 @@ export async function makeJob({ spore, maxEvals, now, nonce, worker, ttl = 3600 
  *
  * claim(key, expires) must be an ATOMIC insert-if-absent: true only if it recorded this key just now (an in-memory
  * Set: `if (s.has(k)) return false; s.add(k); return true;` — IndexedDB add(), a file opened 'wx'). It is called only
- * after the job is admissible (shape, seal, time, addressed to this worker) and BEFORE anything else is awaited for
- * it, so two copies of one job delivered at once cannot both run. A worker that cannot record the claim does not run
- * the job. Then: grow (tools.grow, proposals capped so every evaluation fits the job's limit), seal only an EARNED
- * champion, as an answer citing the job's full hash.
+ * once the job would otherwise be ACCEPTED (admissible, allowed, the data held, within limits), so a refused job never
+ * writes to the replay memory; and it is the last await before the grow, so two copies of one job delivered at once
+ * cannot both run. A worker that cannot record the claim does not run the job. Then: grow (tools.grow, proposals
+ * capped so every evaluation fits the job's limit), seal only an EARNED champion, as an answer citing the job's hash.
  */
 export async function runJob(job, tools, worker) {
   const w = (worker && typeof worker === 'object') ? worker : {};
@@ -168,15 +168,19 @@ export async function runJob(job, tools, worker) {
   }
   const pre = admissible(job, { sigOk, now: w.now, self });
   if (!pre.accept) return { ok: false, verdict: pre };
-  let claimed = false;
-  try { claimed = (await w.claim(job.requester + ':' + job.nonce, job.expires)) === true; } catch { claimed = false; }
-  // cap the model's proposals so the grow, the confirmation and every proposal fit inside the job's limit
-  const room = Math.max(0, job.maxEvals - growCost(pre.settings) - extraEvals(0));
+  // cap the model's proposals so the grow, the confirmation, every proposal and the one spare re-judgement fit
+  const room = Math.max(0, job.maxEvals - growCost(pre.settings) - extraEvals(0) - 1);
   const proposals = (Array.isArray(w.proposals) ? w.proposals : []).slice(0, room);
   let allowed = false;
   try { allowed = (await w.allow(job.requester)) === true; } catch { allowed = false; }
-  const verdict = checkJob(job, { sigOk, now: w.now, self, seen: !claimed, allowed, dataTag: tools.dataSha256Hex.slice(0, 8),
-    maxEvals: w.maxEvals, extra: extraEvals(proposals.length) });
+  const facts = { sigOk, now: w.now, self, allowed, dataTag: tools.dataSha256Hex.slice(0, 8), maxEvals: w.maxEvals, extra: extraEvals(proposals.length) };
+  // every check that does not need the claim, BEFORE the claim: a job refused for any other reason never writes to the
+  // replay memory (found by the adversarial review: junk jobs could fill it until every job read as a replay)
+  const before = checkJob(job, { ...facts, seen: false });
+  if (!before.accept) return { ok: false, verdict: before };
+  let claimed = false;
+  try { claimed = (await w.claim(job.requester + ':' + job.nonce, job.expires)) === true; } catch { claimed = false; }
+  const verdict = checkJob(job, { ...facts, seen: !claimed });
   if (!verdict.accept) return { ok: false, verdict };
   const g = await tools.grow(job.spore, proposals);
   if (!g || g.ok !== true) return { ok: false, verdict: { accept: false, stage: 'grow', reason: 'the seed did not grow here' + (g && g.why ? ' — ' + g.why : '') } };

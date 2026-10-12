@@ -58,9 +58,10 @@
     "model": "llama3.2:1b",
     "offered": 1,
     "promptSha256": "81a83653f489cf8d6a88ffc671ea16ab036e6563a426c586f769c143dcc67a1b",
+    "reply": "{\"elements\":[\"prove\",\"own\",\"shape\",\"carry\",\"remember\",\"run\",\"connect\"],\"wiring\":\"list\",\"measures\":\"all\",\"bins\":8,\"book\":12,\"minSupport\":0.005,\"minLift\":1.25,\"smooth\":10,\"pairK\":12,\"proofZ\":2,\"halfLife\":6,\"ownMin\":2000}",
     "replySha256": "9a78ee4caa5322d69e0a5ea9f81059a7e5bed4438cb5202ec5a84923e6eac7fd"
   },
-  "rule": "a model may only PROPOSE; each proposal is scored on the grow’s inner split and kept only if it beats the grown champion there; the requester re-runs every answer; without a model the job still passes",
+  "rule": "a model may only PROPOSE; each proposal is scored on the grow’s inner split and kept only if it beats the grown champion there AND the stem on confirmation; the requester re-runs every answer; whenever the job passes without a model it passes with one",
   "v": 1,
   "withProposer": {
     "grow": {

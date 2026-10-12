@@ -3,10 +3,19 @@
   "v": 1,
   "date": "2026-10-12",
   "what": "MESH_PLAN step 3 done-test, run live: the 'phone' node signs a grow job addressed to the 'laptop' node and sends it over a real WebRTC DataChannel; the laptop checks it, grows it, seals a v3 answer card and sends it back as a picture; the phone re-runs the answer itself.",
-  "honest_scope": "Two independent browser nodes on ONE machine (different origins, so separate storage and separate non-extractable Ed25519 keys in IndexedDB). A recorded observation, not a regenerable receipt: browser keys and nonces are random. The byte-reproducible receipt for the same protocol is receipts/job-roundtrip.json (CI re-runs it). The two-DEVICE run waits on a second device.",
+  "honest_scope": "Two independent browser nodes on ONE machine (different origins, so separate storage and separate Ed25519 keys). Both keys are now kept non-extractable in IndexedDB, but both were first made by the earlier version of the page as exportable keys in localStorage and moved in on first use — the old copies are deleted, yet a key that was once readable by page script could have been copied before then. A recorded observation, not a regenerable receipt: browser keys and nonces are random. The byte-reproducible receipt for the same protocol is receipts/job-roundtrip.json (CI re-runs it). The two-DEVICE run waits on a second device.",
   "topology": {
-    "requester": { "role": "phone", "origin": "http://localhost:8150", "key": "8f2f6fd8743b6ce9d19fea3b45836d542e17a2dbb4039b2bd35c5e2fc005c367" },
-    "worker": { "role": "laptop", "origin": "http://127.0.0.1:8150", "key": "c620b29ca5d88ce7fb6fb12e4dc5170c9bb76f1dc739416e4f37e7b893e20db8", "runJobs": "ticked (opt-in)" },
+    "requester": {
+      "role": "phone",
+      "origin": "http://localhost:8150",
+      "key": "8f2f6fd8743b6ce9d19fea3b45836d542e17a2dbb4039b2bd35c5e2fc005c367"
+    },
+    "worker": {
+      "role": "laptop",
+      "origin": "http://127.0.0.1:8150",
+      "key": "c620b29ca5d88ce7fb6fb12e4dc5170c9bb76f1dc739416e4f37e7b893e20db8",
+      "runJobs": "ticked (opt-in)"
+    },
     "data": "both nodes hold data/online_shoppers_intention.csv (data tag b3055ee3)",
     "link": "RTCPeerConnection DataChannel, invite + reply pasted by hand (fall-os webrtc.mjs, fall-federate invite check); each node learned the other's key from the invite",
     "stun": "none — the STUN box was unticked on both nodes; no third party at all"
@@ -37,12 +46,30 @@
     "reproduced": "0.820498",
     "seal": "verified",
     "data": "held",
-    "transit": { "intact": true, "sha256": "3f5ce5069cb6e7b44a94bfe63b630f1702790162b129a2adc487ec6482a47ffd" }
+    "transit": {
+      "intact": true,
+      "sha256": "3f5ce5069cb6e7b44a94bfe63b630f1702790162b129a2adc487ec6482a47ffd"
+    }
   },
   "attacks_on_the_worker": [
-    { "case": "replay", "what": "the same signed job, sent again", "refused_at": "replay", "reason": "this job was already run here — a replay is refused" },
-    { "case": "tampered", "what": "the same job with maxEvals changed from 200 to 150, old signature", "refused_at": "seal", "reason": "seal mismatch — the requester did not sign this job" },
-    { "case": "addressed-elsewhere", "what": "a job validly signed by the same requester but addressed to another worker key (abab…ab)", "refused_at": "audience", "reason": "this job is addressed to another worker" }
+    {
+      "case": "replay",
+      "what": "the same signed job, sent again",
+      "refused_at": "replay",
+      "reason": "this job was already run here — a replay is refused"
+    },
+    {
+      "case": "tampered",
+      "what": "the same job with maxEvals changed from 200 to 150, old signature",
+      "refused_at": "seal",
+      "reason": "seal mismatch — the requester did not sign this job"
+    },
+    {
+      "case": "addressed-elsewhere",
+      "what": "a job validly signed by the same requester but addressed to another worker key (abab…ab)",
+      "refused_at": "audience",
+      "reason": "this job is addressed to another worker"
+    }
   ],
   "network": "the phone requested only http://localhost:8150 (page, modules, its data — fetched twice: once by the page, once by a console import used to sign the addressed-elsewhere job) plus one blob: URL (decoding the received answer picture locally); the laptop only http://127.0.0.1:8150. The job and the answer travelled over the DataChannel. Zero requests left the machine.",
   "held": true,

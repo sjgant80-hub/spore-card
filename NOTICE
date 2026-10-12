@@ -3,6 +3,9 @@ Powered by the Konomi architecture, created by Thomas Frumkin.
 
 Vendored, credited:
 - spore.mjs, organ.mjs        — sjgant80-hub/fall-spore (MIT): the seed format and germination engine.
+                                 PATCHED here (2026-10-12): decodeSpore refuses a fixed genome whose packed setting
+                                 points past the end of its grid (found by adversarial review; one such seed made a
+                                 re-run take ~125 s). The same fix belongs upstream in fall-spore.
 - png.mjs                     — sjgant80-hub/fallkard-forge (MIT): PNG chunk primitives (lossless layer).
 - vendor/fall-os/webrtc.mjs   — sjgant80-hub/fall-os (MIT): the hand-pasted-invite WebRTC link (no signalling server).
 - vendor/fall-federate/signaling.mjs — sjgant80-hub/fall-federate (MIT): the witness-gated invite envelope check.

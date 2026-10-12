@@ -22,8 +22,9 @@
 //   }
 //
 // The worker checks, in order: shape → seal → time → audience → replay → allowed → data → limits. The first four
-// are `admissible`: a worker claims the job's nonce (an ATOMIC insert-if-absent) only after they pass, so junk
-// never consumes or probes its replay memory. Pure and total: the caller does the crypto, the clock and the replay
+// are `admissible`. A worker runs checkJob once with seen=false BEFORE claiming, and claims the job's nonce (an
+// ATOMIC insert-if-absent) only if everything else passes — so a refused job never consumes or probes its replay
+// memory — then runs checkJob again with the claim's result. Pure and total: the caller does the crypto, the clock and the replay
 // memory and hands in the facts. Powered by the Konomi architecture, created by Thomas Frumkin.
 // ════════════════════════════════════════════════════════════════
 

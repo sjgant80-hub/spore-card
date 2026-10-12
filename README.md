@@ -15,7 +15,8 @@ forger's Ed25519 key — all under one signature. A receiving machine does not t
 **A signature proves who. Only a re-run proves what.** Proven two ways:
 
 - `receipts/edge-verify.json` — the done-test (genuine accepted; tampered, false-claim, other-data and unsigned
-  refused; and the signed card survives being drawn, downscaled to 40% and read back off the pixels). Deterministic
+  refused; a self-signed grow seed and a fixed seed whose settings point past their grids both refused before any
+  re-run; and the signed card survives being drawn, downscaled to 40% and read back off the pixels). Deterministic
   keys, so **CI re-runs it and demands a byte-identical receipt**: `node tools/edge-receipt.mjs --check`.
 - `receipts/edge-verify-webrtc.json` — the same three verdicts, live, between two independent browser nodes over a
   real WebRTC DataChannel with no server and no STUN; the network log shows zero requests leaving the machine.
@@ -31,9 +32,12 @@ A small device (a phone) can ask a bigger one (a laptop) to **grow** a seed for 
 1. **The job is signed and addressed.** The requester signs a canonical job: the grow spore, a tag for the data,
    an evals cap (≤ 500), a nonce, an expiry (≤ 7 days), and the **one worker key it is meant for**.
 2. **The worker refuses before it spends anything.** In order: shape → seal → time → audience (a job addressed to
-   another node is refused) → it **claims the job atomically** (a replay is refused) → is the requester allowed →
-   does it hold the data → is the job within its limits. Only then does it grow. Running jobs is **opt-in** on the
-   page; nothing runs on your machine unless you tick the box.
+   another node is refused) → is the requester allowed → does it hold the data → is the job within its limits →
+   and only then does it **claim the job atomically** (a replay is refused; a job refused for any other reason
+   leaves nothing in the replay memory). Only then does it grow. Running jobs is **opt-in**: a job that arrives
+   over the link runs only if you have ticked the box (then it runs automatically) or you click "Run it now" on
+   that one job; a saved job file runs only when you drop or choose it — and a dropped file stands in for the
+   requester being allowed, so it still has to be signed and addressed to this node.
 3. **The answer is a v3 card.** It carries the champion it grew as a **fixed** seed, the score, and a 32-byte
    **citation of the exact job** it answers, all under the worker's signature.
 4. **The requester re-runs it.** It checks the seal, that the answer cites *its* job, that it is signed by the
@@ -87,9 +91,11 @@ product are one image: share the card, and anyone who keeps it can grow the thin
   `◊ spore.v1 funnel 11 f:579fc3f04c233901` grows a 9,464-byte organ that scores **0.820498** held-out AUC —
   the exact number fall-spore sealed (commit `4c3ab7b`). Re-run it at https://sjgant80-hub.github.io/fall-spore/
   or by germinating the seed in `grow from a card`.
-- **The visible band survives a re-encode.** In the mutation-gated kernel, the seed reads back after the
-  card is downscaled to **30% of its size and crushed to 3 grey levels** (`survives()` in `spore-card.mjs`).
-  The browser `grow from a card` reads it back after a real JPEG re-encode.
+- **The visible band survives a re-encode.** A deterministic value test (`survives()` in `spore-card-image.mjs`,
+  checked by `spore-card-image.test.mjs`) reads the seed back after the card is downscaled to **30% of its size and
+  crushed to 3 grey levels**. The bit codec it decodes with (`spore-card.mjs`) is mutation-gated; the raster and
+  degrade measurement is value-tested, not mutation-gated (the reason is in `witness-all.mjs`). The browser
+  `grow from a card` reads it back after a real JPEG re-encode.
 - **A corrupt read is refused, not faked.** The CRC-16 means a damaged or tampered card fails to decode
   rather than germinating the wrong thing.
 
