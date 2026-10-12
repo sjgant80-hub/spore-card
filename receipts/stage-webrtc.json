@@ -1,0 +1,22 @@
+{
+  "kind": "spore-card-stage-live-run",
+  "v": 1,
+  "date": "2026-10-12",
+  "what": "Card stages, run live on mesh.html section 5: node A grows a staged card and sends it over a WebRTC DataChannel; node B re-checks every stage from scratch, grows the next stage under ITS OWN key and sends it back; A re-checks the whole history. Every grow and re-run ran in a module Worker; the tab never froze.",
+  "honest_scope": "Two independent browser identities on ONE machine (http://localhost:8150 and http://127.0.0.1:8150 — different origins, so separate non-extractable Ed25519 keys). A recorded observation, not a regenerable receipt: browser keys are random, so keyed seed numbers differ from the CI receipt. The byte-reproducible receipt for the same protocol is receipts/stage-unlock.json (CI re-runs it, including every attack). The two-DEVICE run waits on a second device.",
+  "rules": "funnel/1",
+  "steps": [
+    { "node": "A (localhost)", "did": "Get a starter card", "result": "stage 0 PASS — held-out re-run here 0.811890", "ms": 4023 },
+    { "node": "A", "did": "Grow the next stage here", "result": "stage 1 PASS (self-check) — held-out 0.821785; check split 0.931197 vs best ancestor 0.801642; re-grown here: same model", "ms": 12641 },
+    { "node": "A → B", "did": "Send it to the connected machine (no STUN, no server)", "result": "7 parts, arrived intact; B's inbox: ACCEPTED, the head re-ran to 0.821785" },
+    { "node": "B (127.0.0.1)", "did": "Re-check its stages (nothing cached on B)", "result": "PASS — stages 0–1 re-ran here, re-grown to the same model", "ms": 10997 },
+    { "node": "B", "did": "Grow the next stage here (under B's key)", "result": "stage 2 PASS (self-check) — check split 0.923817 vs best ancestor 0.917531; held-out 0.813054 (it FELL from 0.821785 — shown, never used to decide)" },
+    { "node": "B → A", "did": "Send it back", "result": "arrived intact; A's inbox: ACCEPTED, the head re-ran to 0.813054" },
+    { "node": "A", "did": "Re-check its stages", "result": "PASS — stages 0–2 re-ran here: the signatures prove who, the re-runs proved what" }
+  ],
+  "live_attack": { "what": "A's stage-2 card with ONE bit of stage 1's claimed held-out score edited in the history chunk", "verdict": "REFUSED", "check": "signature", "reason": "stage 1 is not signed by the key it names", "note": "refused instantly, before any re-run" },
+  "network": "both nodes requested only their own origin (the page, modules, the worker, the data). Zero requests left the machine; the cards travelled over the DataChannel.",
+  "console_errors": 0,
+  "phone_width": "375px: no element wider than the screen",
+  "held": true
+}

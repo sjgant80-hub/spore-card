@@ -3,7 +3,11 @@
 // envelope.mjs, edge.mjs, job.mjs, proposer.mjs); the moves in mesh.mjs; the grow in grow-on.mjs; the link is fall-os
 // webrtc.mjs and the invite check is fall-federate signaling.mjs (both vendored, credited). Powered by the Konomi
 // architecture, created by Thomas Frumkin.
-import { CARD_SEED, V2, V3, frame, encodeMatrix } from './spore-card.mjs';
+import { CARD_SEED, V2, V3, frame, unframe, encodeMatrix } from './spore-card.mjs';
+import { sameBytes, unpack as unpackEnvelope } from './envelope.mjs';
+import { parseChunks, serialise, textChunk, readText } from './vendor/fallkard-forge/card.mjs';
+import { withSporeChunk, sporeChunkOf } from './spore-card-wire.mjs';
+import { LINEAGE_KEYWORD } from './stages.mjs';
 import { makeSignedCard, sealClaim, envelopeFromCells, verifyAtEdge, makeJob, runJob, jobHashHex } from './mesh.mjs';
 import { parseSessions } from './organ.mjs';
 import { germinate as sporeGerminate, organBody } from './spore.mjs';
@@ -97,6 +101,7 @@ export async function makeTools() {
       return { ok: true, heldAuc: r.heldAuc, body: JSON.stringify(organBody(r.organ)) };
     },
     grow(sporeStr, proposals = []) { return growOn(data, sporeStr, proposals); },
+    sessions: data,       // the parsed data itself, for the stage engine (stage-worker.mjs)
   };
   tools.demo = async () => { const d = await demoIdentity(); return { ...tools, pubkey: d.pubkey, sign: d.sign }; };
   return tools;
@@ -249,3 +254,39 @@ export function makeAssembler(onCard) {
       sentSha: p.sha, sha, intact: sha === p.sha });
   };
 }
+
+// ── staged cards (CARD-SPEC §9): the band is the latest stage, spoR holds the same frame, konomi-lineage the history ─
+const kwOf = (c) => { const i = c.data.indexOf(0); return i < 0 ? '' : String.fromCharCode.apply(null, c.data.subarray(0, i)); };
+const isLineage = (c) => (c.type === 'tEXt' || c.type === 'zTXt') && kwOf(c) === LINEAGE_KEYWORD;
+
+/** A staged card as a PNG: the head link drawn as a V3 band, the same frame in spoR, the history in one tEXt chunk. */
+export async function stageCardPng(links, historyText, info = {}) {
+  const head = links[links.length - 1];
+  const cv = document.createElement('canvas');
+  drawSignedCard(cv, cellsForEnvelope(head, V3), info);
+  const chunks = parseChunks(withSporeChunk(await canvasPng(cv), frame(head, V3.VER))).filter((c) => !isLineage(c));
+  chunks.splice(chunks.findIndex((c) => c.type === 'IEND'), 0, textChunk(LINEAGE_KEYWORD, historyText));
+  return { png: serialise(chunks), canvas: cv };
+}
+
+/**
+ * A dropped picture → what the stage check needs: how many history chunks it carries, the one history text (tEXt
+ * only), and the band's link — null when the band does not read, or when a spoR chunk disagrees with it.
+ */
+export async function readStageCard(bytes) {
+  let chunks;
+  try { chunks = parseChunks(bytes); } catch { return { ok: false, why: 'not a PNG' }; }
+  const lin = chunks.filter(isLineage);
+  const text = lin.length === 1 && lin[0].type === 'tEXt' ? readText(chunks, LINEAGE_KEYWORD) : null;
+  const band = await envelopeFromPicture(bytes);
+  let head = band.ok ? band.envelope : null;
+  const spoR = sporeChunkOf(bytes);
+  if (head && spoR) { const u = unframe(spoR); if (!u.ok || !sameBytes(u.payload, head)) head = null; }
+  return { ok: true, chunks: lin.length, text, band: head, bandWhy: band.ok ? null : band.why };
+}
+
+/** The claim (millionths) and the seed text a stage link carries — for the card face and the model download. */
+export const unpackClaim = (link) => { const u = unpackEnvelope(link); return u.ok ? u.aucMicro : null; };
+export const unpackSeed = (link) => { const u = unpackEnvelope(link); return u.ok ? new TextDecoder().decode(u.seed) : null; };
+/** How many history chunks a picture carries (0 for a non-PNG). */
+export function historyCount(bytes) { try { return parseChunks(bytes).filter(isLineage).length; } catch { return 0; } }

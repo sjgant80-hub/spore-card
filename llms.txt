@@ -21,6 +21,11 @@
 - receipts/job-roundtrip.json and receipts/byok-roundtrip.json re-run in CI (tools/job-receipt.mjs --check, tools/byok-receipt.mjs --check).
 - Limits: a re-run proves the claim, not that the worker found the best genome; both nodes ran on one machine (two-device run pending).
 
+## Card stages
+- A card can grow: each stage is grown on the holder's machine from the stage before, with a seed number tied to the holder's key, and counts only if it beats the starting model and every earlier stage on a fresh check split. The signed history rides on the card.
+- Any holder re-checks the whole history: signatures and order instantly, then every stage re-run (its held-out score reproduces; it climbs; re-grown for that key it lands on the same model). A copied, hand-picked or edited stage is refused. Held-out is measured, never used to decide.
+- receipts/stage-unlock.json re-runs in CI with every attack (laundered, stolen seed, flipped, spliced, false score, ungrown); receipts/stage-webrtc.json is the live two-browser trade (A grows, B re-checks and grows the next stage under its own key, A re-checks).
+
 ## Links
 - Mesh: https://sjgant80-hub.github.io/spore-card/mesh.html
 - Live: https://sjgant80-hub.github.io/spore-card/

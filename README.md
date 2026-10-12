@@ -105,9 +105,17 @@ at the re-run; an ungrown "stage" at the climb; a wrong band, two histories, ten
 no data or no time give PENDING, never a false refusal. `stages.mjs` (the decisions) is mutation-gated clean with
 nothing baselined; the engine it re-runs is pinned, so a sealed rules id never changes meaning.
 
+**Live: [mesh.html → 5 · Grow your card](https://sjgant80-hub.github.io/spore-card/mesh.html#stagesPanel).** Get a
+starter, grow the next stage (in a background Worker, a few seconds a try), save the card, your model and the check, or
+send the card to the connected machine. Run live (`receipts/stage-webrtc.json`, two browser identities, no server, no
+STUN): A grew stage 1 and sent it; B re-checked every stage from scratch (PASS), grew stage 2 under its own key and
+sent it back; A re-checked the whole history (PASS, stages 0–2). Stage 2's held-out score *fell* (0.821785 → 0.813054)
+while it climbed on its check split — shown, never used to decide. One bit edited in the history: refused at the
+signature, instantly.
+
 What it does not prove: where a stage was grown (only that it was grown for that key, reproducibly); that a stage is
-the best model, or useful beyond this one public task; held-out can fall while stages rise (both are shown). The live
-page to grow and trade staged cards is the next slice.
+the best model, or useful beyond this one public task; held-out can fall while stages rise (both are shown). Not yet
+built: breeding two cards, and stages on forge (HTML-build) cards.
 
 ## The honest claims (each measured, each re-runnable)
 

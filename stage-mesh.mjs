@@ -102,20 +102,26 @@ export async function structureFacts(parsed, tools, { chunks = 1, chunkBytes = 0
 /**
  * Re-run each stage, cheapest check first (held, then the check split, then the replayed grow), until `shouldStop()`
  * says the budget is spent — every unreached stage stays null (PENDING, never REFUSED).
+ * `onResult(k, r)` reports each stage as it finishes; `cache` (hash → result) reuses this device's own numbers.
  */
-export function rerunStages(parsed, facts, data, { shouldStop = () => false, tick } = {}) {
+export function rerunStages(parsed, facts, data, { shouldStop = () => false, tick, onResult = () => {}, cache = null } = {}) {
   const rules = rulesFor(parsed.rulesId);
   const genomes = parsed.links.map(genomeOf);
   const results = [];
   for (let k = 0; k < parsed.links.length; k++) {
     if (shouldStop()) break;
     const L = facts.links[k];
+    // numbers this device itself computed for exactly these bytes earlier this session (in memory only — the whole
+    // estate shares one origin, so nothing persistent is trusted)
+    const hit = cache && cache.get(L.hashHex);
+    if (hit) { results.push(hit); onResult(k, hit); continue; }
     const r = { heldMicro: heldMicro(data, L.seedText) };
     if (k > 0 && r.heldMicro === L.claimMicro && genomes[k]) {
       Object.assign(r, checkScores(data, rules, L.decoded.seedNo, genomes[k], genomes.slice(0, k)));
       if (climbs(r.confMicro, r.barMicros)) r.replayGenomeKey = keyOf(stageChampion(data, rules, L.decoded.seedNo, genomes[k - 1], tick));
     }
     results.push(r);
+    onResult(k, r);
   }
   return results;
 }

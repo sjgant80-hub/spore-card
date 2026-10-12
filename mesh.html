@@ -115,6 +115,33 @@
       <input type="file" id="jobFile" accept="application/json" hidden> <a href="#" id="jobBrowse">choose a job file</a></div>
   </div>
 
+  <div class="panel" id="stagesPanel">
+    <h2>5 · Grow your card</h2>
+    <p>A card can grow. Stage 0 is the ungrown starting model. Each stage after it is grown on the holder's own machine, from
+    the stage before, with a seed number tied to the holder's key — and it only counts if it beats the starting model and every
+    stage before it on a fresh check. The whole history rides on the card, and any machine that holds it re-runs every stage
+    before it believes one. So a stage can't be claimed, copied or bought — only grown.</p>
+    <div class="row">
+      <button class="btn" id="starter" disabled>Get a starter card</button>
+      <button class="btn" id="growStage" disabled>Grow the next stage here</button>
+      <button class="btn warn" id="stopStage" hidden>Stop</button>
+    </div>
+    <div class="status" id="stageStatus" role="status" aria-live="polite"></div>
+    <canvas id="stageCard" hidden aria-label="your staged card"></canvas>
+    <div id="stageRows"></div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn ghost" id="saveStage" disabled>Save my card</button>
+      <button class="btn ghost" id="saveStageModel" disabled>Save my model</button>
+      <button class="btn ghost" id="saveStageReceipt" disabled>Save the check</button>
+      <button class="btn ghost" id="sendStage" disabled>Send it to the connected machine</button>
+    </div>
+    <div class="drop" id="stageDrop" style="margin-top:10px">Drop a staged card here to re-check its whole history on this machine.
+      <input type="file" id="stageFile" accept="image/png" hidden> <a href="#" id="stageBrowse">choose a file</a></div>
+    <p style="margin-top:12px">What it does not prove: where a stage was grown (only that it was grown for that key, reproducibly);
+    that a stage is the best model, or useful beyond this one public task; and the held-out score can fall while stages rise —
+    it is shown, never used to decide.</p>
+  </div>
+
   <div class="panel">
     <h2>Cards this node received</h2>
     <p>Each one is checked here: the signature, then whether this machine holds the same data, then a re-run of the seed.</p>
@@ -139,6 +166,7 @@
 
 <script type="module">
 import * as N from './mesh-node.mjs';
+import * as S from './stages.mjs';
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const short = (u8) => N.toHex(u8).slice(0, 12) + '…';
@@ -155,7 +183,7 @@ async function boot() {
     $('me').innerHTML = 'key ' + esc(short(tools.pubkey)) + ' (kept ' + esc(tools.keyStored)
       + (tools.keyCopyable ? ' — <span class="no">this old key is still readable by page script; it could be copied</span>' : '; page script can use it but never read it') + ') · data '
       + esc(tools.dataSha256Hex.slice(0, 12)) + '… (UCI shoppers, held on this machine)';
-    $('make').disabled = false; $('host').disabled = false; $('join').disabled = false;
+    $('make').disabled = false; $('host').disabled = false; $('join').disabled = false; $('starter').disabled = false;
   } catch (e) { $('me').innerHTML = '<span class="no">' + esc(e.message || e) + ' — this browser may not support Ed25519 (WebCrypto).</span>'; }
 }
 
@@ -344,6 +372,11 @@ async function judgePicture(png, label, transit, job = null) {
     + (transit ? '<div class="status">' + (transit.intact ? '<span class="ok">arrived intact</span> — the bytes match what was sent (' + esc(transit.sha.slice(0, 12)) + '…)' : '<span class="no">changed in transit</span>') + '</div>' : '')
     + '<div class="row" style="margin-top:8px"><button class="btn ghost" type="button">Download the receipt</button></div>';
   div.querySelector('button').onclick = () => download(new TextEncoder().encode(JSON.stringify(entry, null, 2)), 'edge-receipt-' + label + '.json', 'application/json');
+  if (N.historyCount(png) > 0) {   // a staged card: its whole history can be re-checked in section 5
+    const b = document.createElement('button'); b.className = 'btn ghost'; b.type = 'button'; b.textContent = 'Re-check its stages';
+    b.onclick = () => { $('stagesPanel').scrollIntoView({ behavior: 'smooth' }); checkStageCard(png, label); };
+    div.querySelector('.row').appendChild(b);
+  }
   $('inbox').appendChild(div);
   return entry;
 }
@@ -357,8 +390,141 @@ $('file').onchange = async (e) => { const f = e.target.files[0]; if (f) judgePic
 ['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('hot'); }));
 drop.addEventListener('drop', async (e) => { const f = e.dataTransfer.files[0]; if (f) judgePicture(new Uint8Array(await f.arrayBuffer()), f.name.slice(0, 40), null); });
 
+// ── 5 · card stages: grown on this machine in a Worker, re-checked before anything is believed or saved ───────────
+// Every grow and re-run happens in stage-worker.mjs, so the page never freezes. Stopping (or the time budget) ends the
+// worker: whatever had not re-run yet is PENDING — never REFUSED. The worker stays alive between a grow and its
+// self-check, so the self-check reuses the numbers this device just computed for exactly those bytes.
+const STAGE_BUDGET_MS = 60000;
+let SW = null, swReady = null, stopStage = null;
+const stage = { links: null, png: null, structure: null, facts: null, results: [], lineage: null };
+function stageWorker() {
+  if (swReady) return swReady;
+  SW = new Worker('./stage-worker.mjs', { type: 'module' });
+  swReady = new Promise((res) => { SW.onmessage = (e) => { if (e.data && e.data.type === 'ready') res(SW); }; SW.onerror = () => res(null); });
+  return swReady;
+}
+function killStageWorker() { if (SW) { try { SW.terminate(); } catch { /* gone */ } } SW = null; swReady = null; }
+async function callStage(msg, onMsg, budgetMs = 0) {
+  const w = await stageWorker();
+  if (!w) return { type: 'error', why: 'this browser could not start the stage worker' };
+  return new Promise((resolve) => {
+    let timer = null;
+    const end = (m) => { clearTimeout(timer); stopStage = null; $('stopStage').hidden = true; resolve(m); };
+    if (budgetMs) timer = setTimeout(() => { killStageWorker(); end({ type: 'timeout' }); }, budgetMs);
+    stopStage = () => { killStageWorker(); end({ type: 'stopped' }); };
+    $('stopStage').hidden = false;
+    w.onmessage = (e) => { const m = e.data || {}; if (onMsg(m) === true) end(m); };
+    w.onerror = (e) => { killStageWorker(); end({ type: 'error', why: (e && e.message) || 'the stage worker failed' }); };
+    w.postMessage(msg);
+  });
+}
+$('stopStage').onclick = () => { if (stopStage) stopStage(); };
+const stageBusy = (busy) => { for (const id of ['starter', 'growStage', 'saveStage', 'saveStageModel', 'saveStageReceipt', 'sendStage']) $(id).disabled = busy || (id !== 'starter' && !(stage.lineage && stage.lineage.verdict === 'PASS')); refresh && refresh(); };
+const say5 = (html) => { $('stageStatus').innerHTML = html; };
+const microTxt = (m) => (Number.isInteger(m) ? (m / 1e6).toFixed(6) : '?');
+
+function renderStages() {
+  const L = stage.lineage, F = stage.facts, R = stage.results || [];
+  if (!L) { $('stageRows').innerHTML = ''; return; }
+  const chip = L.verdict === 'PASS' ? 'a' : 'r';
+  const n = F && F.links ? F.links.length : 0;
+  const head = L.verdict === 'PASS' && L.proven >= 0 ? 'stage ' + L.proven + ' of ' + (n ? 8 : 0) + ' — every stage re-ran here' : esc(L.reason);
+  let rows = '';
+  for (let k = 0; k < n; k++) {
+    const f = F.links[k], r = R[k];
+    const held = r && Number.isInteger(r.heldMicro) ? 'held-out re-run ' + microTxt(r.heldMicro) + (r.heldMicro === f.claimMicro ? ' ✓' : ' ✗ (card says ' + microTxt(f.claimMicro) + ')') : 'held-out claimed ' + microTxt(f.claimMicro) + ' — not re-run yet';
+    const climb = k === 0 ? 'the starting model' : r && Number.isInteger(r.confMicro) ? 'check split ' + microTxt(r.confMicro) + ' vs best ancestor ' + microTxt(Math.max(...(r.barMicros || [0]))) : '';
+    const replay = k === 0 ? '' : r && typeof r.replayGenomeKey === 'string' ? (r.replayGenomeKey === f.genomeKey ? '· re-grown here: same model ✓' : '· re-grown here: a different model ✗') : '';
+    rows += '<div class="status">stage ' + k + ' · ' + esc(held) + (climb ? ' · ' + esc(climb) : '') + ' ' + esc(replay) + '</div>';
+  }
+  $('stageRows').innerHTML = '<div class="card-in"><span class="chip ' + chip + '">' + esc(L.verdict) + '</span>' + head
+    + (L.verdict !== 'PASS' ? '' : '<div class="status">' + esc(L.reason) + '</div>') + rows + '</div>';
+}
+
+/** Re-check a staged card's whole history on this machine (structure, then every re-run, within the budget). */
+async function checkStageCard(bytes, label) {
+  const read = await N.readStageCard(bytes);
+  if (!read.ok) { say5('<span class="no">' + esc(read.why) + '</span>'); return null; }
+  Object.assign(stage, { structure: null, facts: null, results: [], lineage: null });
+  stageBusy(true);
+  say5('re-checking ' + esc(label) + ' — its history, then every stage re-run on this machine…');
+  const end = await callStage({ cmd: 'verify', text: read.text, chunks: read.chunks, band: read.band }, (m) => {
+    if (m.type === 'structure') { stage.structure = m.structure; stage.facts = m.facts; }
+    if (m.type === 'result') { stage.results[m.k] = m.r; say5('re-checking — stage ' + m.k + ' re-ran…'); }
+    return m.type === 'lineage' || m.type === 'error';
+  }, STAGE_BUDGET_MS);
+  if (end.type === 'lineage') stage.lineage = end.lineage;
+  else if (stage.structure) stage.lineage = S.judgeLineage(stage.structure, stage.results, { ...stage.facts, dataOk: true });
+  else stage.lineage = { verdict: 'PENDING', proven: -1, check: 'budget', reason: end.type === 'error' ? 'the check could not run here — ' + end.why : 're-checking stopped before the history was read' };
+  if (end.type === 'timeout' && stage.lineage.verdict === 'PENDING') stage.lineage.reason += ' — "Re-check" runs it again';
+  const parsed = read.text ? S.parseLineage(read.text) : null;
+  stage.links = stage.lineage.verdict === 'PASS' && parsed && parsed.ok ? parsed.links : null;
+  stage.png = stage.links ? bytes : null;
+  say5(stage.lineage.verdict === 'PASS' ? '<span class="ok">' + esc(stage.lineage.reason) + '</span>' : '<span class="no">' + esc(stage.lineage.reason) + '</span>');
+  renderStages(); stageBusy(false);
+  return stage.lineage;
+}
+
+/** Draw the card for these links, then check it exactly as any holder would before it is offered. */
+async function adoptStages(links) {
+  const head = links[links.length - 1];
+  const held = N.unpackClaim(head);
+  const info = { title: 'Stage ' + (links.length - 1) + ' · grown here', claim: microTxt(held) + (links.length > 1 ? ' (stage 0: ' + microTxt(N.unpackClaim(links[0])) + ')' : ''), signer: N.toHex(tools.pubkey).slice(0, 12) + '…' };
+  const { png, canvas } = await N.stageCardPng(links, S.lineageText('funnel/1', links), info);
+  const cv = $('stageCard'); cv.width = canvas.width; cv.height = canvas.height; cv.getContext('2d').drawImage(canvas, 0, 0); cv.hidden = false;
+  return checkStageCard(png, 'your card (self-check)');
+}
+
+$('starter').onclick = async () => {
+  stageBusy(true); say5('growing the starting model here and signing it with your key…');
+  const r = await callStage({ cmd: 'root' }, (m) => m.type === 'root' || m.type === 'error');
+  if (!r.ok) { say5('<span class="no">' + esc(r.why || 'the starter could not be made') + '</span>'); stageBusy(false); return; }
+  await adoptStages([r.link]);
+};
+$('growStage').onclick = async () => {
+  if (!stage.links) return;
+  const k = stage.links.length;
+  stageBusy(true); say5('growing stage ' + k + ' here — up to 8 tries, each a few seconds; the first that beats every stage before it is kept…');
+  const r = await callStage({ cmd: 'grow', links: stage.links }, (m) => {
+    if (m.type === 'tick') say5('growing stage ' + k + ' here — ' + m.n + ' models tried so far…');
+    return m.type === 'grown' || m.type === 'error';
+  });
+  if (r.type !== 'grown' || !r.ok) {
+    const tried = r.tried ? ' (' + r.tried.length + ' tries: ' + r.tried.map((t) => microTxt(t.confMicro) + ' vs ' + microTxt(Math.max(...t.barMicros))).join(', ') + ')' : '';
+    say5('<span class="no">' + esc((r.why || (r.type === 'stopped' ? 'stopped — nothing was signed' : 'the grow did not finish')) + tried) + '</span>');
+    stageBusy(false); return;
+  }
+  await adoptStages([...stage.links, r.link]);
+};
+$('saveStage').onclick = () => { if (stage.png) download(stage.png, 'staged-spore-card.png', 'image/png'); };
+$('saveStageReceipt').onclick = () => {
+  if (!stage.lineage) return;
+  const receipt = { kind: 'spore-card-stage-check', v: 1, checkedBy: N.toHex(tools.pubkey), at: new Date().toISOString(), rules: 'funnel/1',
+    verdict: stage.lineage.verdict, proven: stage.lineage.proven, reason: stage.lineage.reason,
+    stages: (stage.facts ? stage.facts.links : []).map((f, k) => ({ k, link: f.hashHex, claimMicro: f.claimMicro, seed: f.seedText, rerun: stage.results[k] || null })) };
+  download(new TextEncoder().encode(JSON.stringify(receipt, null, 2)), 'stage-check.json', 'application/json');
+};
+$('saveStageModel').onclick = async () => {
+  if (!stage.links) return;
+  const seed = N.unpackSeed(stage.links[stage.links.length - 1]);
+  const r = await callStage({ cmd: 'model', seed }, (m) => m.type === 'model' || m.type === 'error');
+  if (r.ok) download(new TextEncoder().encode(JSON.stringify({ seed, heldAuc: r.heldAuc, organ: r.body }, null, 2)), 'my-staged-model.json', 'application/json');
+};
+$('sendStage').onclick = async () => {
+  if (!stage.png || !(link && link.open)) return;
+  const msgs = await N.cardMessages(stage.png, 'a staged card');
+  for (const m of msgs) link.send(m);
+  say5('sent your staged card (' + msgs.length + ' part' + (msgs.length === 1 ? '' : 's') + ') — the other machine re-checks every stage itself');
+};
+const stageDrop = $('stageDrop');
+$('stageBrowse').onclick = (e) => { e.preventDefault(); $('stageFile').click(); };
+$('stageFile').onchange = async (e) => { const f = e.target.files[0]; if (f) checkStageCard(new Uint8Array(await f.arrayBuffer()), f.name.slice(0, 40)); };
+['dragenter', 'dragover'].forEach((ev) => stageDrop.addEventListener(ev, (e) => { e.preventDefault(); stageDrop.classList.add('hot'); }));
+['dragleave', 'drop'].forEach((ev) => stageDrop.addEventListener(ev, (e) => { e.preventDefault(); stageDrop.classList.remove('hot'); }));
+stageDrop.addEventListener('drop', async (e) => { const f = e.dataTransfer.files[0]; if (f) checkStageCard(new Uint8Array(await f.arrayBuffer()), f.name.slice(0, 40)); });
+
 // a handle for the two-node run (the receipts) — it does nothing a visitor cannot do by hand
-window.meshNode = { boot, makeCard, host, accept, finish, send, handoff, runHere, received, pending,
+window.meshNode = { boot, makeCard, host, accept, finish, send, handoff, runHere, received, pending, stage, checkStageCard,
   setRunJobs(v) { $('runJobs').checked = !!v; },
   get open() { return !!(link && link.open); }, get key() { return tools && N.toHex(tools.pubkey); }, get peer() { return peerKey; } };
 boot();
